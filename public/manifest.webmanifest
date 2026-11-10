@@ -1,0 +1,9 @@
+{
+  "name": "Caissa – Schachdatenbank",
+  "short_name": "Caissa",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#17150f",
+  "theme_color": "#17150f",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
