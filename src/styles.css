@@ -131,7 +131,7 @@ cg-board square.move-dest:hover { background: rgba(67, 173, 165, .35); }
 cg-board square.check { background: radial-gradient(ellipse at center, rgba(207, 85, 70, .95) 0, rgba(207, 85, 70, .6) 35%, transparent 80%); }
 .cg-wrap coords { font-family: var(--mono); font-size: calc(10 * var(--u)); }
 .board-box { container-type: size; }
-.move-badge { position: absolute; transform: translate(-62%, -38%); width: 4.6cqw; height: 4.6cqw; border-radius: 50%; color: #fff; font: 700 2.5cqw/4.6cqw var(--mono); letter-spacing: -.06em; text-align: center; z-index: 5; pointer-events: none; box-shadow: 0 0 0 .35cqw var(--ground), 0 .3cqw .9cqw rgba(0, 0, 0, .45); }
+.move-badge { position: absolute; transform: translate(-60%, -40%); width: 5.8cqw; height: 5.8cqw; border-radius: 50%; color: #fff; font: 700 3.1cqw/5.8cqw var(--mono); letter-spacing: -.06em; text-align: center; z-index: 5; pointer-events: none; box-shadow: 0 0 0 .35cqw var(--ground), 0 .3cqw .9cqw rgba(0, 0, 0, .45); }
 .evalbar { width: calc(26 * var(--u)); background: #26231f; position: relative; overflow: hidden; flex: none; }
 .evalbar-white { position: absolute; left: 0; right: 0; bottom: 0; background: #ece6dc; transition: height .3s ease; }
 .evalbar.black .evalbar-white { bottom: auto; top: 0; }
@@ -312,3 +312,8 @@ label.btn { display: inline-block; }
 .annot .hint { font-size: calc(12.5 * var(--u)); color: var(--muted); }
 .mv-nag { font-weight: 400; margin-left: calc(3 * var(--u)); }
 .brand span { color: var(--accent); }
+
+/* Ergebnis aus eigener Sicht */
+.res.mine { display: inline-block; min-width: calc(40 * var(--u)); text-align: center; padding: calc(1 * var(--u)) calc(6 * var(--u)); border-radius: calc(4 * var(--u)); font-weight: 600; color: #fff; }
+.res.win { background: #3f8a47; } .res.loss { background: #b8402f; } .res.draw { background: #7d766b; }
+.res { display: inline-block; min-width: calc(40 * var(--u)); text-align: center; padding: calc(1 * var(--u)) calc(6 * var(--u)); }

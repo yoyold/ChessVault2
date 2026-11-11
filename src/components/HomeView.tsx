@@ -91,7 +91,7 @@ export function HomeView() {
           {d.recent.map(g => (
             <div key={g.id} className="exp-game" onClick={() => openGame(g.id!)}>
               <span className="ellip"><b>{g.white}</b> – <b>{g.black}</b> <span className="muted">{g.eco} {g.opening}</span></span>
-              <span className="muted">{resultLabel(g.result)} · {g.date.replace(/\.\?\?/g, '').replace('????', '?')}</span>
+              <span className="muted">{(o => <span className={o ? `res mine ${o}` : 'res'}>{resultLabel(g.result)}</span>)(g.result === '*' || !mySide(g) ? null : g.result === '1/2-1/2' ? 'draw' : (g.result === '1-0') === (mySide(g) === 'w') ? 'win' : 'loss')} · {g.date.replace(/\.\?\?/g, '').replace('????', '?')}</span>
             </div>
           ))}
         </div>

@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, deleteGames, GameMeta, patchGames } from '../lib/db';
-import { emptyFilter, loadGames, openGame, openNewGame, setFilter, startBackground, toast, useStore } from '../lib/store';
+import { emptyFilter, loadGames, myNames, mySide, openGame, openNewGame, setFilter, startBackground, toast, useStore } from '../lib/store';
 import { buildPredicate, countActive, download, nGames, resultLabel } from '../lib/filter';
 import { Field, Icon, Modal } from './ui';
 import { ImportDialog } from './ImportDialog';
+
+/** Ergebnis farbig aus eigener Sicht: Sieg grün, Niederlage rot, Remis grau; fremde Partien neutral. */
+function outcome(g: GameMeta, names: string[]): 'win' | 'loss' | 'draw' | null {
+  const side = mySide(g, names);
+  if (!side || g.result === '*') return null;
+  if (g.result === '1/2-1/2') return 'draw';
+  return (g.result === '1-0') === (side === 'w') ? 'win' : 'loss';
+}
+const resClass = (g: GameMeta, names: string[]) => { const o = outcome(g, names); return o ? `res mine ${o}` : 'res' + (g.result === '1/2-1/2' ? ' rd' : ''); };
+const resTitle = (g: GameMeta, names: string[]) => ({ win: 'Sieg', loss: 'Niederlage', draw: 'Remis' } as any)[outcome(g, names) ?? ''] ?? '';
 
 type SortKey = 'white' | 'whiteElo' | 'black' | 'blackElo' | 'result' | 'plies' | 'eco' | 'date' | 'event' | 'tc' | 'acc' | 'added';
 
@@ -19,6 +29,7 @@ const COLS: { key: SortKey | null; label: string; cls?: string }[] = [
 export function DatabaseView() {
   const { games, filter, loaded, settings } = useStore();
   const ROW = Math.round(36 * (window.innerWidth <= 900 ? Math.min(settings.scale, 1.1) : settings.scale));
+  const names = useMemo(() => myNames(), [settings.me]);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'added', dir: -1 });
   const [showFilter, setShowFilter] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -170,7 +181,7 @@ export function DatabaseView() {
                 <div className="num muted">{g.whiteElo || ''}</div>
                 <div className="ellip strong">{g.black}</div>
                 <div className="num muted">{g.blackElo || ''}</div>
-                <div><span className={'res r' + (g.result === '1-0' ? 'w' : g.result === '0-1' ? 'b' : 'd')}>{resultLabel(g.result)}</span></div>
+                <div><span className={resClass(g, names)} title={resTitle(g, names)}>{resultLabel(g.result)}</span></div>
                 <div className="num">{Math.ceil(g.plies / 2)}</div>
                 <div className="ellip" title={g.opening}><span className="eco">{g.eco}</span> {g.opening}</div>
                 <div className="muted">{g.date.replace(/\.\?\?/g, '').replace('????', '')}</div>
