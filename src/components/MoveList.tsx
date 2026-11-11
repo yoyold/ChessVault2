@@ -20,7 +20,9 @@ export function MoveList({ root, cur, classes, onSelect, onContext }: Props) {
   const move = (n: Node, force: boolean): ReactNode => {
     const cls = classes.get(n.id);
     const marked = cls && cls !== 'best' && cls !== 'excellent' && cls !== 'good' && cls !== 'book';
-    const nags = (n.nags ?? []).map(g => NAG_SYMBOL[g] ?? '').join('');
+    const all = n.nags ?? [];
+    const nags = all.filter(g => g <= 6).map(g => NAG_SYMBOL[g] ?? '').join('');
+    const extra = all.filter(g => g > 6).map(g => NAG_SYMBOL[g] ?? '').filter(Boolean).join(' ');
     return (
       <span
         key={n.id}
@@ -33,6 +35,7 @@ export function MoveList({ root, cur, classes, onSelect, onContext }: Props) {
         <span className="mv-no">{moveNumber(n, force)}</span>
         {n.san}{nags}
         {marked && !nags ? <sup>{CLASS_INFO[cls!].symbol}</sup> : null}
+        {extra ? <span className="mv-nag">{extra}</span> : null}
       </span>
     );
   };
@@ -51,6 +54,7 @@ export function MoveList({ root, cur, classes, onSelect, onContext }: Props) {
         const vc = cleanComment(v.comment);
         const inner = (
           <>
+            {cleanComment(v.pre) ? <span className="mv-comment">{cleanComment(v.pre)}</span> : null}
             {move(v, true)}
             {vc ? <span className="mv-comment">{vc}</span> : null}
             {line(v, depth + 1)}

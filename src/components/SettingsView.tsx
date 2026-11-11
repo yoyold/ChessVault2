@@ -34,9 +34,9 @@ export function SettingsView() {
   };
   const exportAll = async () => {
     const pgns = await db.pgns.toArray();
-    download(`caissa-backup-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.map(p => p.pgn.trim()).join('\n\n') + '\n');
+    download(`chessvault2-partien-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.map(p => p.pgn.trim()).join('\n\n') + '\n');
   };
-  const backup = async () => download(`caissa-sicherung-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup(), 'application/json');
+  const backup = async () => download(`chessvault2-sicherung-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup(), 'application/json');
   const restore = async (file?: File) => {
     if (!file) return;
     try {
@@ -66,6 +66,12 @@ export function SettingsView() {
               <button className={settings.theme === 'light' ? 'on' : ''} onClick={() => setSettings({ theme: 'light' })}>Hell</button>
             </div>
           </Field>
+          <Field label="Darstellungsgröße">
+            <select value={settings.scale} onChange={e => setSettings({ scale: +e.target.value })}>
+              <option value={1}>Klein (100 %)</option><option value={1.15}>Mittel (115 %)</option><option value={1.3}>Groß (130 %)</option>
+              <option value={1.45}>Sehr groß (145 %)</option><option value={1.6}>Riesig (160 %)</option>
+            </select>
+          </Field>
           <Field label="Meine Spielernamen (mehrere mit Semikolon trennen)">
             <input value={settings.me} onChange={e => setSettings({ me: e.target.value })} placeholder="lichessname; Nachname, Vorname" />
           </Field>
@@ -81,7 +87,7 @@ export function SettingsView() {
       <div className="card pad">
         <h3>Geräte-Sync <span className={'pill ' + sync.state}>{sync.state === 'off' ? 'nicht eingerichtet' : sync.state === 'busy' ? 'läuft …' : sync.state === 'error' ? 'Fehler' : 'aktiv'}</span></h3>
         <p className="muted">
-          Damit du von jedem Gerät und Browser auf dieselbe Datenbank zugreifst, synchronisiert Caissa alle Partien, Reports, Favoriten und
+          Damit du von jedem Gerät und Browser auf dieselbe Datenbank zugreifst, synchronisiert ChessVault2 alle Partien, Reports, Favoriten und
           Schlagwörter über ein <b>privates GitHub-Repository</b>, das nur dir gehört. Kostenlos, ohne eigenen Server.
         </p>
         <ol className="steps">
@@ -117,7 +123,7 @@ export function SettingsView() {
       </div>
 
       <div className="card pad">
-        <h3>Über Caissa</h3>
+        <h3>Über ChessVault2</h3>
         <p className="muted small">
           Freie Software (GPL-3.0). Gebaut mit Stockfish (GPL-3.0), Chessground (GPL-3.0), chess.js (BSD-2), Dexie (Apache-2.0), React (MIT), Vite (MIT).
           Eröffnungsnamen: lichess-org/chess-openings (CC0). Alle Analysen laufen lokal in deinem Browser.

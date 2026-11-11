@@ -1,6 +1,6 @@
 {
-  "name": "Caissa – Schachdatenbank",
-  "short_name": "Caissa",
+  "name": "ChessVault2",
+  "short_name": "ChessVault2",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#17150f",

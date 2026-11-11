@@ -15,6 +15,7 @@ export interface Settings {
   multipv: number;
   me: string;
   engineOn: boolean;
+  scale: number;
 }
 
 export interface Filter {
@@ -55,7 +56,7 @@ interface State {
   bg: { done: number; total: number; label: string } | null;
 }
 
-const defaultSettings: Settings = { theme: 'dark', reportDepth: 14, multipv: 3, me: '', engineOn: true };
+const defaultSettings: Settings = { theme: 'dark', reportDepth: 14, multipv: 3, me: '', engineOn: true, scale: 1.3 };
 
 function loadSettings(): Settings {
   try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem('caissa.settings') || '{}') }; }
@@ -92,7 +93,7 @@ export function setView(v: View) { state.view = v; bump(); }
 export function setSettings(p: Partial<Settings>) {
   state.settings = { ...state.settings, ...p };
   localStorage.setItem('caissa.settings', JSON.stringify(state.settings));
-  document.documentElement.dataset.theme = state.settings.theme;
+  applyLook();
   bump();
 }
 export function setFilter(p: Partial<Filter>) { state.filter = { ...state.filter, ...p }; bump(); }
@@ -248,8 +249,13 @@ export function scheduleSync(delay = 4000) {
   syncTimer = setTimeout(() => runSync(true), delay);
 }
 
-export async function initApp() {
+function applyLook() {
   document.documentElement.dataset.theme = state.settings.theme;
+  document.documentElement.style.setProperty('--scale', String(state.settings.scale));
+}
+
+export async function initApp() {
+  applyLook();
   await loadGames();
   if (!state.games.length) { state.view = 'db'; bump(); }
   onLocalChange(() => scheduleSync());

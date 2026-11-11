@@ -11,7 +11,7 @@ import { bump, saveReport, saveSession, setSettings, state, toast, useStore, ope
 import { Node, START_FEN, addMove, deleteNode, isMainline, lastOfLine, mainline, pathTo, promote, stripSan } from '../lib/tree';
 import { engine, formatScore, Job, PV, winPct } from '../lib/engine';
 import { analyzeGame, CLASS_INFO, CLASS_ORDER, countClasses, MoveClass } from '../lib/report';
-import { serializeGame } from '../lib/pgn';
+import { NAG_GROUPS, NAG_SYMBOL, serializeGame } from '../lib/pgn';
 import { resultLabel } from '../lib/filter';
 import { validateFen } from 'chess.js';
 
@@ -44,6 +44,23 @@ export function AnalysisView() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const ctl = useRef<{ cancelled: boolean; job?: Job } | null>(null);
   const [engineError, setEngineError] = useState(false);
+  const [shapeTick, setShapeTick] = useState(0);
+  const toggleNag = (nag: number, group: number[]) => {
+    const c = state.session.cur;
+    const had = c.nags?.includes(nag);
+    const rest = (c.nags ?? []).filter(x => !group.includes(x));
+    c.nags = had ? rest : [...rest, nag].sort((a, b) => a - b);
+    if (!c.nags.length) c.nags = undefined;
+    state.session.dirty = true; bump();
+  };
+  const walk = (n: Node, f: (x: Node) => void) => { f(n); n.children.forEach(ch => walk(ch, f)); };
+  const stripAll = (what: 'comments' | 'variations') => {
+    if (!confirm(what === 'comments' ? 'Alle Kommentare, Symbole und Markierungen dieser Partie entfernen?' : 'Alle Varianten dieser Partie entfernen?')) return;
+    const sess = state.session;
+    if (what === 'comments') walk(sess.game.root, x => { x.comment = undefined; x.pre = undefined; x.nags = undefined; x.shapes = undefined; });
+    else { walk(sess.game.root, x => { if (x.children.length > 1) x.children = [x.children[0]]; }); if (!isMainline(sess.cur)) sess.cur = sess.game.root; }
+    sess.dirty = true; setShapeTick(t => t + 1); bump();
+  };
 
   const cur = s.cur;
   const root = s.game.root;
@@ -145,9 +162,9 @@ export function AnalysisView() {
   const shown = terminal ?? evalNow;
   const whitePct = winPct(shown);
   const shapes: DrawShape[] = [];
-  if (lines[0]?.pv[0]) shapes.push({ orig: lines[0].pv[0].slice(0, 2) as Key, dest: lines[0].pv[0].slice(2, 4) as Key, brush: 'paleBlue' });
+  if (lines[0]?.pv[0]) shapes.push({ orig: lines[0].pv[0].slice(0, 2) as Key, dest: lines[0].pv[0].slice(2, 4) as Key, brush: 'engine' });
   const better = report && posIdx > 0 && curMove && ['inaccuracy', 'mistake', 'blunder'].includes(curMove.cls) ? report.evals[posIdx - 1] : null;
-  if (better?.best) shapes.push({ orig: better.best.slice(0, 2) as Key, dest: better.best.slice(2, 4) as Key, brush: 'green' });
+  if (better?.best) shapes.push({ orig: better.best.slice(0, 2) as Key, dest: better.best.slice(2, 4) as Key, brush: 'better' });
   const badge = curMove && cur.uci ? { square: cur.uci.slice(2, 4), color: CLASS_INFO[curMove.cls].color, symbol: CLASS_INFO[curMove.cls].symbol } : null;
 
   const h = s.game.headers;
@@ -190,6 +207,12 @@ export function AnalysisView() {
               fen={cur.fen} orientation={s.orientation} turn={turn} dests={dests}
               lastMove={cur.uci ? [cur.uci.slice(0, 2) as Key, cur.uci.slice(2, 4) as Key] : undefined}
               check={chess.isCheck()} shapes={shapes} badge={badge} onMove={onBoardMove}
+              userShapes={(cur.shapes ?? []) as DrawShape[]} shapesKey={cur.id + ':' + shapeTick}
+              onShapes={sh => {
+                const next = sh.filter(x => ['green', 'red', 'blue', 'yellow'].includes(x.brush ?? '')).map(x => ({ orig: x.orig as string, ...(x.dest ? { dest: x.dest as string } : {}), brush: x.brush! }));
+                if (JSON.stringify(next) === JSON.stringify(cur.shapes ?? [])) return;
+                cur.shapes = next.length ? next : undefined; s.dirty = true; bump();
+              }}
             />
             {promo && (
               <div className="promo" onClick={() => setPromo(null)}>
@@ -228,6 +251,8 @@ export function AnalysisView() {
             <summary className="btn">⋯</summary>
             <div className="menu-pop" onClick={e => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
               <button onClick={() => setEditHeaders(true)}>Partiedaten bearbeiten</button>
+              <button onClick={() => stripAll('comments')}>Alle Kommentare entfernen</button>
+              <button onClick={() => stripAll('variations')}>Alle Varianten entfernen</button>
               <button onClick={() => openNewGame()}>Neue Partie / leeres Brett</button>
               <button onClick={() => setPasteOpen(true)}>PGN oder FEN einfügen …</button>
               <button onClick={() => { navigator.clipboard.writeText(serializeGame(s.game)); toast('PGN kopiert.'); }}>PGN kopieren</button>
@@ -276,10 +301,27 @@ export function AnalysisView() {
                   {better?.bestSan && <span> · besser war <b>{better.bestSan}</b></span>}
                 </div>
               )}
-              <textarea
-                className="comment-box" placeholder={cur === root ? 'Kommentar zur Partie …' : `Kommentar zu ${cur.san} …`}
-                value={cur.comment ?? ''} onChange={e => { cur.comment = e.target.value || undefined; s.dirty = true; bump(); }}
-              />
+              <div className="annot">
+                {cur !== root && NAG_GROUPS.map(g => (
+                  <div className="annot-row" key={g.title}>
+                    <small>{g.title}</small>
+                    {g.items.map(([nag, label]) => (
+                      <button key={nag} title={label} className={cur.nags?.includes(nag) ? 'on' : ''} onClick={() => toggleNag(nag, g.items.map(i => i[0]))}>{NAG_SYMBOL[nag]}</button>
+                    ))}
+                  </div>
+                ))}
+                {cur.parent && cur.parent.children[0] !== cur && (
+                  <textarea className="pre" placeholder={`Text vor ${cur.san} …`} value={cur.pre ?? ''} onChange={e => { cur.pre = e.target.value || undefined; s.dirty = true; bump(); }} />
+                )}
+                <textarea
+                  placeholder={cur === root ? 'Kommentar zur Partie …' : `Kommentar nach ${cur.san} …`}
+                  value={cur.comment ?? ''} onChange={e => { cur.comment = e.target.value || undefined; s.dirty = true; bump(); }}
+                />
+                <div className="hint">
+                  Pfeile und Felder: Rechtsklick (ziehen) auf dem Brett – grün, mit Umschalt rot, mit Alt blau, mit beiden gelb.
+                  {cur.shapes?.length ? <> · <span className="link" onClick={() => { cur.shapes = undefined; s.dirty = true; setShapeTick(t => t + 1); bump(); }}>Markierungen löschen</span></> : null}
+                </div>
+              </div>
             </>
           )}
 
@@ -310,7 +352,7 @@ export function AnalysisView() {
                     <div className="acc-card w"><span>{name('White')}</span><b>{report.accW.toFixed(1)}</b><small>Genauigkeit</small></div>
                     <div className="acc-card b"><span>{name('Black')}</span><b>{report.accB.toFixed(1)}</b><small>Genauigkeit</small></div>
                   </div>
-                  <EvalGraph report={report} current={posIdx} onPick={i => go(i === 0 ? root : line[i - 1])} />
+                  <EvalGraph report={report} line={line} current={posIdx} onPick={i => go(i === 0 ? root : line[i - 1])} />
                   <table className="class-table">
                     <tbody>
                       {CLASS_ORDER.map(c => (
@@ -353,9 +395,6 @@ export function AnalysisView() {
           <div className="menu-pop fixed" style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 190) }}>
             {!isMainline(menu.node) && <button onClick={() => { promote(menu.node); s.dirty = true; s.report = null; go(menu.node); }}>Variante hochstufen</button>}
             <button onClick={() => { const p = deleteNode(menu.node); s.dirty = true; go(p); }}>Ab hier löschen</button>
-            {[[1, '!'], [2, '?'], [3, '!!'], [4, '??'], [5, '!?'], [6, '?!']].map(([nag, sym]) => (
-              <button key={nag} className="nag" onClick={() => { menu.node.nags = menu.node.nags?.includes(nag as number) ? [] : [nag as number]; s.dirty = true; setMenu(null); bump(); }}>{sym}</button>
-            ))}
           </div>
         </div>
       )}

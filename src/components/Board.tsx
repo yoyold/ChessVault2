@@ -16,6 +16,10 @@ export interface BoardProps {
   check: boolean;
   shapes: DrawShape[];
   badge?: { square: string; color: string; symbol: string } | null;
+  /** Vom Nutzer gezeichnete Pfeile/Felder der aktuellen Stellung; shapesKey wechselt mit der Stellung. */
+  userShapes?: DrawShape[];
+  shapesKey?: number | string;
+  onShapes?: (shapes: DrawShape[]) => void;
   onMove: (from: string, to: string) => void;
 }
 
@@ -24,13 +28,22 @@ export function Board(p: BoardProps) {
   const api = useRef<Api | null>(null);
   const onMove = useRef(p.onMove);
   onMove.current = p.onMove;
+  const onShapes = useRef(p.onShapes);
+  onShapes.current = p.onShapes;
 
   useEffect(() => {
     const cg = Chessground(el.current!, {
       animation: { duration: 180 },
       movable: { free: false, showDests: true, rookCastle: false, events: { after: (o, d) => onMove.current(o, d) } },
       premovable: { enabled: false },
-      drawable: { enabled: true },
+      drawable: {
+        enabled: true, eraseOnClick: false,
+        onChange: shapes => onShapes.current?.(shapes),
+        brushes: {
+          engine: { key: 'engine', color: '#2f8f88', opacity: 0.6, lineWidth: 9 },
+          better: { key: 'better', color: '#4c8a50', opacity: 0.75, lineWidth: 9 },
+        } as any,
+      },
       highlight: { lastMove: true, check: true },
     });
     api.current = cg;
@@ -47,6 +60,8 @@ export function Board(p: BoardProps) {
       lastMove: p.lastMove,
       check: p.check,
       movable: { color: p.turn, dests: p.dests },
+      // Chessground verwirft gezeichnete Pfeile, sobald eine Stellung gesetzt wird – deshalb immer mitgeben.
+      drawable: { shapes: p.userShapes ?? [] },
     });
     api.current?.setAutoShapes(p.shapes);
   });

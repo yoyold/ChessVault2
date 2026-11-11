@@ -11,7 +11,7 @@ const ICONS: Record<string, string> = {
 };
 export function Icon({ name }: { name: string }) {
   return (
-    <svg className="icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={ICONS[name]} />
     </svg>
   );

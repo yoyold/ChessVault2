@@ -1,4 +1,4 @@
-import { Game, Node, addMove, newRoot, START_FEN } from './tree';
+import { Game, Node, Shape, addMove, newRoot, START_FEN } from './tree';
 
 /** Zerlegt einen PGN-Text in einzelne Partien. */
 export function splitPgn(text: string): string[] {
@@ -57,8 +57,40 @@ export function quickMainline(movetext: string): string[] {
 
 const SUFFIX_NAG: Record<string, number> = { '!': 1, '?': 2, '!!': 3, '??': 4, '!?': 5, '?!': 6 };
 export const NAG_SYMBOL: Record<number, string> = {
-  1: '!', 2: '?', 3: '!!', 4: '??', 5: '!?', 6: '?!', 10: '=', 13: '∞', 14: '⩲', 15: '⩱', 16: '±', 17: '∓', 18: '+−', 19: '−+',
+  1: '!', 2: '?', 3: '!!', 4: '??', 5: '!?', 6: '?!', 7: '□', 146: 'N',
+  10: '=', 13: '∞', 14: '⩲', 15: '⩱', 16: '±', 17: '∓', 18: '+−', 19: '−+', 44: '=/∞',
+  22: '⊙', 32: '⟳', 26: '○', 36: '↑', 40: '→', 132: '⇆', 138: '⊕', 140: '∆', 142: '⌓',
 };
+
+/** Auswahl wie in ChessBase: je Gruppe höchstens ein Symbol pro Zug. */
+export const NAG_GROUPS: { title: string; items: [number, string][] }[] = [
+  { title: 'Zug', items: [[1, 'Guter Zug'], [2, 'Fehler'], [3, 'Glänzender Zug'], [4, 'Grober Fehler'], [5, 'Interessanter Zug'], [6, 'Zweifelhafter Zug'], [7, 'Einziger Zug'], [146, 'Neuerung']] },
+  { title: 'Stellung', items: [[18, 'Weiß steht auf Gewinn'], [16, 'Weiß steht klar besser'], [14, 'Weiß steht etwas besser'], [10, 'Ausgeglichen'], [13, 'Unklar'], [44, 'Mit Kompensation'], [15, 'Schwarz steht etwas besser'], [17, 'Schwarz steht klar besser'], [19, 'Schwarz steht auf Gewinn']] },
+  { title: 'Motiv', items: [[36, 'Mit Initiative'], [40, 'Mit Angriff'], [132, 'Mit Gegenspiel'], [22, 'Zugzwang'], [32, 'Entwicklungsvorsprung'], [26, 'Raumvorteil'], [138, 'Zeitnot'], [140, 'Mit der Idee'], [142, 'Besser ist']] },
+];
+
+const BRUSH_LETTER: Record<string, string> = { green: 'G', red: 'R', blue: 'B', yellow: 'Y' };
+const LETTER_BRUSH: Record<string, string> = { G: 'green', R: 'red', B: 'blue', Y: 'yellow', O: 'yellow', C: 'blue' };
+
+/** Trennt grafische Kommentare ([%cal …] Pfeile, [%csl …] Felder) vom Kommentartext. */
+function splitShapes(c: string): { text: string; shapes: Shape[] } {
+  const shapes: Shape[] = [];
+  const text = c.replace(/\[%c(al|sl)\s+([^\]]*)\]/g, (_m, _k, list: string) => {
+    for (const t of list.split(',')) {
+      const m = t.trim().match(/^([A-Z])([a-h][1-8])([a-h][1-8])?$/);
+      if (m) shapes.push({ brush: LETTER_BRUSH[m[1]] ?? 'green', orig: m[2], ...(m[3] ? { dest: m[3] } : {}) });
+    }
+    return '';
+  }).replace(/\s+/g, ' ').trim();
+  return { text, shapes };
+}
+
+function shapeTags(shapes?: Shape[]): string {
+  if (!shapes?.length) return '';
+  const sq = shapes.filter(s => !s.dest).map(s => (BRUSH_LETTER[s.brush] ?? 'G') + s.orig);
+  const ar = shapes.filter(s => s.dest).map(s => (BRUSH_LETTER[s.brush] ?? 'G') + s.orig + s.dest);
+  return (sq.length ? `[%csl ${sq.join(',')}]` : '') + (ar.length ? `[%cal ${ar.join(',')}]` : '');
+}
 
 /** Vollständiger Parser mit Varianten, Kommentaren und NAGs. */
 export function parseGame(pgn: string): Game {
@@ -70,21 +102,28 @@ export function parseGame(pgn: string): Game {
   let i = 0;
   const n = text.length;
   let broken = false;
+  let pendingPre = ''; // Kommentar direkt nach „(“ gehört vor den ersten Zug der Variante
+  let afterOpen = false;
   while (i < n && !broken) {
     const ch = text[i];
     if (/\s/.test(ch)) { i++; continue; }
     if (ch === '{') {
       const end = text.indexOf('}', i);
-      const c = text.slice(i + 1, end < 0 ? n : end).replace(/\s+/g, ' ').trim();
-      if (c) cur.comment = cur.comment ? cur.comment + ' ' + c : c;
+      const raw = text.slice(i + 1, end < 0 ? n : end).replace(/\s+/g, ' ').trim();
+      const { text: c, shapes } = splitShapes(raw);
+      if (afterOpen) { if (c) pendingPre = pendingPre ? pendingPre + ' ' + c : c; }
+      else {
+        if (c) cur.comment = cur.comment ? cur.comment + ' ' + c : c;
+        if (shapes.length) cur.shapes = [...(cur.shapes ?? []), ...shapes];
+      }
       i = end < 0 ? n : end + 1; continue;
     }
     if (ch === ';' || (ch === '%' && (i === 0 || text[i - 1] === '\n'))) {
       const end = text.indexOf('\n', i);
       i = end < 0 ? n : end + 1; continue;
     }
-    if (ch === '(') { stack.push(cur); if (cur.parent) cur = cur.parent; i++; continue; }
-    if (ch === ')') { const p = stack.pop(); if (p) cur = p; i++; continue; }
+    if (ch === '(') { stack.push(cur); if (cur.parent) cur = cur.parent; i++; afterOpen = true; pendingPre = ''; continue; }
+    if (ch === ')') { const p = stack.pop(); if (p) cur = p; i++; afterOpen = false; continue; }
     let j = i;
     while (j < n && !/[\s{}()]/.test(text[j])) j++;
     let tok = text.slice(i, j);
@@ -99,6 +138,8 @@ export function parseGame(pgn: string): Game {
     tok = tok.replace(/0-0-0/g, 'O-O-O').replace(/0-0/g, 'O-O');
     const child = addMove(cur, tok);
     if (!child) { broken = true; break; }
+    if (afterOpen && pendingPre && !child.pre) child.pre = pendingPre;
+    afterOpen = false; pendingPre = '';
     if (sm && SUFFIX_NAG[sm[0]] && !(child.nags ?? []).includes(SUFFIX_NAG[sm[0]])) (child.nags ??= []).push(SUFFIX_NAG[sm[0]]);
     cur = child;
   }
@@ -113,7 +154,7 @@ export function serializeGame(g: Game): string {
   const keys = [...SEVEN, ...Object.keys(h).filter(k => !SEVEN.includes(k))];
   const head = keys.map(k => `[${k} "${String(h[k]).replace(/(["\\])/g, '\\$1')}"]`).join('\n');
   const out: string[] = [];
-  if (g.root.comment) out.push(`{${g.root.comment}}`);
+  { const c = [g.root.comment, shapeTags(g.root.shapes)].filter(Boolean).join(' '); if (c) out.push(`{${c.replace(/}/g, ')')}}`); }
   writeLine(g.root, out, true);
   out.push(h.Result);
   // Zeilenumbruch bei ~80 Zeichen
@@ -135,7 +176,8 @@ function moveTok(n: Node, force: boolean): string {
 
 function annot(n: Node, out: string[]): boolean {
   for (const g of n.nags ?? []) out.push('$' + g);
-  if (n.comment) { out.push(`{${n.comment.replace(/}/g, ')')}}`); return true; }
+  const c = [n.comment, shapeTags(n.shapes)].filter(Boolean).join(' ');
+  if (c) { out.push(`{${c.replace(/}/g, ')')}}`); return true; }
   return false;
 }
 
@@ -147,6 +189,7 @@ function writeLine(from: Node, out: string[], force: boolean) {
     force = annot(main, out);
     for (const v of vars) {
       out.push('(');
+      if (v.pre) out.push(`{${v.pre.replace(/}/g, ')')}}`);
       out.push(moveTok(v, true));
       writeLine(v, out, annot(v, out));
       out.push(')');

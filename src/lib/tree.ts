@@ -11,8 +11,12 @@ export interface Node {
   parent: Node | null;
   children: Node[];
   comment?: string;
+  pre?: string; // Kommentar vor dem Zug (am Anfang einer Variante)
   nags?: number[];
+  shapes?: Shape[]; // farbige Pfeile und Felder
 }
+
+export interface Shape { orig: string; dest?: string; brush: string }
 
 export interface Game {
   headers: Record<string, string>;

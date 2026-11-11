@@ -47,7 +47,7 @@ export function TrainingView() {
       {!names ? (
         <div className="welcome">
           <p>Das Training nimmt die Stellungen, in denen du selbst einen Fehler oder Patzer gespielt hast, und lässt dich den besseren Zug finden.
-            Dafür muss Caissa wissen, welcher Spieler du bist.</p>
+            Dafür muss ChessVault2 wissen, welcher Spieler du bist.</p>
           <div className="row"><button className="btn primary" onClick={() => setView('settings')}>Spielernamen eintragen</button></div>
         </div>
       ) : !q ? <div className="muted">Lade …</div> : (

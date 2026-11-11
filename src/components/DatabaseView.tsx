@@ -6,7 +6,6 @@ import { Field, Icon, Modal } from './ui';
 import { ImportDialog } from './ImportDialog';
 
 type SortKey = 'white' | 'whiteElo' | 'black' | 'blackElo' | 'result' | 'plies' | 'eco' | 'date' | 'event' | 'tc' | 'acc' | 'added';
-const ROW = 38;
 
 const COLS: { key: SortKey | null; label: string; cls?: string }[] = [
   { key: null, label: '' }, { key: null, label: '' },
@@ -18,7 +17,8 @@ const COLS: { key: SortKey | null; label: string; cls?: string }[] = [
 ];
 
 export function DatabaseView() {
-  const { games, filter, loaded } = useStore();
+  const { games, filter, loaded, settings } = useStore();
+  const ROW = Math.round(36 * (window.innerWidth <= 900 ? Math.min(settings.scale, 1.1) : settings.scale));
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'added', dir: -1 });
   const [showFilter, setShowFilter] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -63,7 +63,7 @@ export function DatabaseView() {
   const exportPgn = async () => {
     const t = targets();
     const pgns = await db.pgns.bulkGet(t.map(g => g.id!));
-    download(`caissa-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.filter(Boolean).map(p => p!.pgn.trim()).join('\n\n') + '\n');
+    download(`chessvault2-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.filter(Boolean).map(p => p!.pgn.trim()).join('\n\n') + '\n');
     toast(`${nGames(t.length)} exportiert.`);
   };
   const remove = async () => {
@@ -163,7 +163,7 @@ export function DatabaseView() {
         <div className="tbody" ref={box} onScroll={e => setScroll(e.currentTarget.scrollTop)}>
           <div style={{ height: rows.length * ROW, position: 'relative' }}>
             {rows.slice(first, last).map((g, i) => (
-              <div key={g.id} className={'trow' + (sel.has(g.id!) ? ' selected' : '')} style={{ top: (first + i) * ROW }} onClick={() => openGame(g.id!)}>
+              <div key={g.id} className={'trow' + (sel.has(g.id!) ? ' selected' : '')} style={{ top: (first + i) * ROW, height: ROW }} onClick={() => openGame(g.id!)}>
                 <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={sel.has(g.id!)} onChange={() => toggle(g.id!)} /></div>
                 <div className={'star' + (g.fav ? ' on' : '')} onClick={e => { e.stopPropagation(); fav(g); }}>{g.fav ? '★' : '☆'}</div>
                 <div className="ellip strong">{g.white}</div>

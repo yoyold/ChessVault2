@@ -166,7 +166,7 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
     const tree = await gh(cfg, '/git/trees', { method: 'POST', body: JSON.stringify({ ...(baseTree ? { base_tree: baseTree } : {}), tree: entries }) });
     const commit = await gh(cfg, '/git/commits', {
       method: 'POST',
-      body: JSON.stringify({ message: `Caissa Sync ${new Date().toISOString()}`, tree: tree.sha, parents: [] }),
+      body: JSON.stringify({ message: `ChessVault2 Sync ${new Date().toISOString()}`, tree: tree.sha, parents: [] }),
     });
     // Hat inzwischen ein anderes Gerät geschrieben? Dann von vorn.
     let nowSha: string | null = null;
@@ -197,7 +197,7 @@ export async function exportBackup(): Promise<string> {
 /** Spielt eine Sicherung ein. Pro Partie gewinnt die jüngere Fassung; nichts wird gelöscht. */
 export async function importBackup(text: string): Promise<number> {
   const data = JSON.parse(text);
-  if (data?.app !== 'caissa' || !Array.isArray(data.records)) throw new Error('Das ist keine Caissa-Sicherungsdatei.');
+  if (data?.app !== 'caissa' || !Array.isArray(data.records)) throw new Error('Das ist keine ChessVault2-Sicherungsdatei.');
   let n = 0;
   for (let i = 0; i < data.records.length; i += 500) n += await mergeRemote(data.records.slice(i, i + 500), 1);
   return n;

@@ -21,7 +21,7 @@ export function App() {
   return (
     <div className="app">
       <nav className="sidebar">
-        <div className="brand">Caissa</div>
+        <div className="brand">ChessVault<span>2</span></div>
         {NAV.map(n => (
           <button key={n.id} className={'nav-item' + (view === n.id ? ' on' : '')} onClick={() => setView(n.id)}>
             <Icon name={n.icon} /><span className="nav-label">{n.label}</span>
