@@ -33,7 +33,6 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
   for (const g of games) {
     const side = mySide(g, names);
     if (!side || !g.event) continue;
-    if (!online && (ONLINE.test(g.event) || /lichess\.org|chess\.com/i.test(g.site))) continue;
     const white = side === 'w';
     const pts = g.result === '*' ? null : g.result === '1/2-1/2' ? 0.5 : (g.result === '1-0') === white ? 1 : 0;
     const key = g.event.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -45,6 +44,12 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
   // a long pause between consecutive games starts a new one (see GAP_DAYS / YEAR_GAP_DAYS). This keeps a
   // season that runs across New Year together but separates a yearly event played February to September.
   // Games without a date join the most recent edition.
+  // Online play is judged per event, not per game: a single over-the-board game whose PGN was exported from
+  // an online analysis board (Site "Chess.com") must not drop out of its tournament.
+  if (!online) for (const [name, rows] of byName) {
+    const onlineSite = rows.filter(r => /lichess\.org|chess\.com/i.test(r.g.site)).length;
+    if (ONLINE.test(rows[0].g.event) || onlineSite > rows.length / 2) byName.delete(name);
+  }
   const map = new Map<string, Row[]>();
   const time = (r: Row) => Date.parse(r.g.date.replace(/\?\?/g, '01').replace(/\./g, '-'));
   for (const [name, rows] of byName) {
@@ -67,17 +72,18 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
     const rnd = (r: Row) => parseFloat(r.g.round) || 999;
     rows.sort((a, b) => rnd(a) - rnd(b) || dateKey(a.g.date).localeCompare(dateKey(b.g.date)) || (a.g.id ?? 0) - (b.g.id ?? 0));
     const done = rows.filter(r => r.pts !== null);
-    const rated = done.filter(r => r.oppElo > 0);
+    const rated = done.filter(r => r.oppElo > 0 && r.oppElo < 4000);
     const avgOpp = rated.length ? rated.reduce((s, r) => s + r.oppElo, 0) / rated.length : null;
-    const elos = rows.map(r => r.myElo).filter(Boolean);
+    // median, and only plausible values: one mistyped rating must not distort the comparison
+    const elos = rows.map(r => r.myElo).filter(e => e > 0 && e < 4000).sort((a, b) => a - b);
     const dates = rows.map(r => r.g.date).filter(d => !d.startsWith('?')).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
     out.push({
-      key, name: rows[0].g.event, site: rows.find(r => r.g.site)?.g.site ?? '',
+      key, name: rows[0].g.event, site: rows.find(r => r.g.site && !/lichess\.org|chess\.com/i.test(r.g.site))?.g.site ?? '',
       first: dates[0] ?? '', last: dates[dates.length - 1] ?? '',
       rows, played: done.length, points: done.reduce((s, r) => s + r.pts!, 0),
       w: done.filter(r => r.pts === 1).length, d: done.filter(r => r.pts === 0.5).length, l: done.filter(r => r.pts === 0).length,
       avgOpp: avgOpp ? Math.round(avgOpp) : null,
-      myElo: elos.length ? Math.round(elos.reduce((a, b) => a + b, 0) / elos.length) : null,
+      myElo: elos.length ? elos[Math.floor((elos.length - 1) / 2)] : null,
       perf: avgOpp && rated.length ? performance(rated.reduce((s, r) => s + r.pts!, 0), rated.length, avgOpp) : null,
       rated: rated.length,
     });
