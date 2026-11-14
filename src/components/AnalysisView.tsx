@@ -14,9 +14,12 @@ import { analyzeGame, CLASS_INFO, CLASS_ORDER, countClasses, MoveClass } from '.
 import { NAG_GROUPS, NAG_SYMBOL, serializeGame } from '../lib/pgn';
 import { resultLabel } from '../lib/filter';
 import { addLines, sideName } from '../lib/repertoire';
+import { noteFor } from '../lib/notes';
+import { PositionNote } from './NotesView';
+import { emptyFilter, setFilter, setView } from '../lib/store';
 import { validateFen } from 'chess.js';
 
-type Tab = 'moves' | 'report' | 'explorer';
+type Tab = 'moves' | 'report' | 'explorer' | 'note';
 
 function pvSan(fen: string, pv: string[], max = 12): { text: string; first?: string } {
   const c = new Chess(fen);
@@ -94,7 +97,8 @@ export function AnalysisView() {
   const curMove = report && posIdx > 0 ? report.moves[posIdx - 1] : null;
 
   // ----- Navigation -----
-  const go = (n: Node | null | undefined) => { if (n) { s.cur = n; setMenu(null); bump(); } };
+  // always act on the live session: the keyboard handler below is bound once and outlives a session change
+  const go = (n: Node | null | undefined) => { if (n) { state.session.cur = n; setMenu(null); bump(); } };
   const play = (mv: string | { from: string; to: string; promotion?: string }) => {
     const before = cur.children.length;
     const n = addMove(cur, mv);
@@ -260,6 +264,7 @@ export function AnalysisView() {
               <button onClick={() => setEditHeaders(true)}>Partiedaten bearbeiten</button>
               {!s.rep && standard && cur !== root && <button onClick={() => toRep('w')}>Variante ins Weiß-Repertoire</button>}
               {!s.rep && standard && cur !== root && <button onClick={() => toRep('b')}>Variante ins Schwarz-Repertoire</button>}
+              <button onClick={() => { setFilter({ ...emptyFilter(), fen: cur.fen }); setView('db'); }}>Partien mit dieser Stellung suchen</button>
               <button onClick={() => stripAll('comments')}>Alle Kommentare entfernen</button>
               <button onClick={() => stripAll('variations')}>Alle Varianten entfernen</button>
               <button onClick={() => openNewGame()}>Neue Partie / leeres Brett</button>
@@ -299,6 +304,7 @@ export function AnalysisView() {
             <button className={tab === 'moves' ? 'on' : ''} onClick={() => setTab('moves')}>Notation</button>
             <button className={tab === 'report' ? 'on' : ''} onClick={() => setTab('report')}>Report</button>
             <button className={tab === 'explorer' ? 'on' : ''} onClick={() => setTab('explorer')}>Eröffnungsbaum</button>
+            <button className={tab === 'note' ? 'on' : ''} onClick={() => setTab('note')}>Notiz{noteFor(cur.fen) ? ' •' : ''}</button>
           </div>
 
           {tab === 'moves' && (
@@ -395,7 +401,8 @@ export function AnalysisView() {
             </div>
           )}
 
-          {tab === 'explorer' && <Explorer sans={sans} standard={standard} onPlay={san => play(san)} />}
+          {tab === 'explorer' && <Explorer fen={cur.fen} sans={sans} standard={standard} onPlay={san => play(san)} />}
+          {tab === 'note' && <PositionNote fen={cur.fen} />}
         </div>
       </div>
 

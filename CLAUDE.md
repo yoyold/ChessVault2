@@ -23,6 +23,9 @@ Existing users have data under these names; changing them would orphan it:
 
 - Each colour's opening repertoire is one record in the games table with the flag `rep: 'w' | 'b'` (fixed uids
   `repertoire-w` / `repertoire-b`). It is kept out of `state.games` (see `state.reps`) but syncs like a game.
+- Position notes are records in the games table too (flag `note`, uid `note-<hash>`), kept in `state.notes`.
+- The position index (`src/lib/posindex.ts`, table `posidx`) is derived data: device-local, rebuilt from the
+  moves, never synced or backed up.
 - Changes to a stored game autosave (debounced in `bump()`, flushed when leaving); a new, never-saved game does not.
 
 ## Layout and checks

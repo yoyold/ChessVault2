@@ -1,26 +1,25 @@
 import { useMemo } from 'react';
-import { useStore, openGame } from '../lib/store';
+import { useStore, openGame, setFilter, setView, emptyFilter } from '../lib/store';
 import { findOpening } from '../lib/openings';
+import { findPosition, indexState } from '../lib/posindex';
 import { WdlBar } from './ui';
-import { resultLabel } from '../lib/filter';
+import { nGames, resultLabel } from '../lib/filter';
 
-/** Opening tree from the user's own database: which moves were played after the current move sequence? */
-export function Explorer({ sans, standard, onPlay }: { sans: string[]; standard: boolean; onPlay: (san: string) => void }) {
+/**
+ * Opening tree from the user's own database, by position: which moves were played from the current
+ * position, whatever move order led to it?
+ */
+export function Explorer({ fen, sans, standard, onPlay }: { fen: string; sans: string[]; standard: boolean; onPlay: (san: string) => void }) {
   const { games } = useStore();
-  const prefix = sans.join(' ');
   const data = useMemo(() => {
-    if (!standard) return null;
+    const byId = new Map(games.map(g => [g.id!, g]));
     const map = new Map<string, { n: number; w: number; d: number; b: number; elo: number; eloN: number }>();
-    const hits: typeof games = [];
-    const pl = prefix.length;
-    for (const g of games) {
-      const m = g.moves;
-      if (pl && !(m === prefix || m.startsWith(prefix + ' '))) continue;
-      hits.push(g);
-      if (m.length <= pl) continue;
-      const start = pl ? pl + 1 : 0;
-      const end = m.indexOf(' ', start);
-      const next = m.slice(start, end < 0 ? undefined : end);
+    const hits: { g: (typeof games)[number]; ply: number }[] = [];
+    for (const h of findPosition(fen)) {
+      const g = byId.get(h.id);
+      if (!g) continue;
+      hits.push({ g, ply: h.ply });
+      const next = g.moves ? g.moves.split(' ', h.ply + 1)[h.ply] : undefined;
       if (!next) continue;
       let e = map.get(next);
       if (!e) map.set(next, (e = { n: 0, w: 0, d: 0, b: 0, elo: 0, eloN: 0 }));
@@ -30,17 +29,20 @@ export function Explorer({ sans, standard, onPlay }: { sans: string[]; standard:
       if (avg) { e.elo += avg; e.eloN++; }
     }
     const moves = [...map.entries()].sort((a, b) => b[1].n - a[1].n);
-    hits.sort((a, b) => Math.max(b.whiteElo, b.blackElo) - Math.max(a.whiteElo, a.blackElo));
-    return { moves, total: hits.length, top: hits.slice(0, 60) };
-  }, [games, prefix, standard]);
+    hits.sort((a, b) => b.g.date.replace(/\?/g, '0').localeCompare(a.g.date.replace(/\?/g, '0')));
+    return { moves, total: hits.length, top: hits.slice(0, 80) };
+  }, [games, fen, indexState.version]);
 
-  if (!data) return <div className="muted pad">Der Eröffnungsbaum steht nur für Partien aus der Grundstellung zur Verfügung.</div>;
-  const op = findOpening(sans);
+  const op = standard ? findOpening(sans) : null;
   return (
     <div className="explorer">
       <div className="exp-head">
-        <strong>{op ? `${op.eco} · ${op.name}` : 'Grundstellung'}</strong>
-        <span className="muted">{data.total.toLocaleString('de')} Partien in deiner Datenbank</span>
+        <strong>{op ? `${op.eco} · ${op.name}` : standard && !sans.length ? 'Grundstellung' : 'Stellung'}</strong>
+        <span className="muted">
+          {nGames(data.total)} in deiner Datenbank
+          {data.total > 0 && <> · <span className="link" onClick={() => { setFilter({ ...emptyFilter(), fen }); setView('db'); }}>in der Datenbank zeigen</span></>}
+        </span>
+        {indexState.building && <span className="muted small">Stellungsindex wird aufgebaut ({indexState.done}/{indexState.total}) …</span>}
       </div>
       {data.moves.length ? (
         <table className="exp-table">
@@ -57,10 +59,10 @@ export function Explorer({ sans, standard, onPlay }: { sans: string[]; standard:
           </tbody>
         </table>
       ) : <div className="muted pad">Keine weiteren Züge in der Datenbank.</div>}
-      {data.top.length > 0 && <div className="exp-sub">Partien mit dieser Zugfolge</div>}
+      {data.top.length > 0 && <div className="exp-sub">Partien mit dieser Stellung</div>}
       <div className="exp-games">
-        {data.top.map(g => (
-          <div key={g.id} className="exp-game" onClick={() => openGame(g.id!, sans.length)}>
+        {data.top.map(({ g, ply }) => (
+          <div key={g.id} className="exp-game" onClick={() => openGame(g.id!, ply)}>
             <span className="ellip">{g.white} {g.whiteElo ? `(${g.whiteElo})` : ''} – {g.black} {g.blackElo ? `(${g.blackElo})` : ''}</span>
             <span className="muted">{resultLabel(g.result)} · {g.year || '?'}</span>
           </div>

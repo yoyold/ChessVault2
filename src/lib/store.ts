@@ -6,8 +6,9 @@ import { metaFromPgn, normalizeDate } from './meta';
 import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
+import { onIndexChange, syncIndex } from './posindex';
 
-export type View = 'home' | 'db' | 'analysis' | 'repertoire' | 'training' | 'tournaments' | 'stats' | 'settings';
+export type View = 'home' | 'db' | 'analysis' | 'repertoire' | 'training' | 'notes' | 'tournaments' | 'stats' | 'settings';
 
 export interface Settings {
   theme: 'dark' | 'light';
@@ -24,13 +25,14 @@ export interface Filter {
   yearFrom: string; yearTo: string; eloMin: string; eloMax: string;
   ecoFrom: string; ecoTo: string; opening: string; moves: string;
   movesMin: string; movesMax: string; tc: string; tag: string;
+  fen: string; // games that reach this position
   favOnly: boolean; analyzedOnly: boolean;
 }
 
 export const emptyFilter = (): Filter => ({
   q: '', white: '', black: '', ignoreColors: true, res: { w: true, d: true, b: true },
   yearFrom: '', yearTo: '', eloMin: '', eloMax: '', ecoFrom: '', ecoTo: '', opening: '', moves: '',
-  movesMin: '', movesMax: '', tc: '', tag: '', favOnly: false, analyzedOnly: false,
+  movesMin: '', movesMax: '', tc: '', tag: '', fen: '', favOnly: false, analyzedOnly: false,
 });
 
 export interface Session {
@@ -49,6 +51,7 @@ interface State {
   view: View;
   games: GameMeta[];
   reps: GameMeta[]; // repertoire records (kept out of the game list)
+  notes: GameMeta[]; // position notes (records with `note`)
   loaded: boolean;
   settings: Settings;
   filter: Filter;
@@ -71,7 +74,7 @@ function freshSession(): Session {
 }
 
 export const state: State = {
-  view: 'home', games: [], reps: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
+  view: 'home', games: [], reps: [], notes: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
   session: freshSession(), sync: { state: getSyncConfig() ? 'idle' : 'off', msg: '', last: 0 }, toast: null, bg: null,
 };
 
@@ -123,8 +126,10 @@ export async function loadGames() {
     for (const g of fix) { g.date = normalizeDate(g.date); g.year = parseInt(g.date.slice(0, 4), 10) || 0; }
     await patchGames(fix.map(g => g.id!), g => { const date = normalizeDate(g.date); return { date, year: parseInt(date.slice(0, 4), 10) || 0 }; });
   }
-  state.games = all.filter(g => !g.deleted && !g.rep);
+  state.games = all.filter(g => !g.deleted && !g.rep && !g.note);
   state.reps = all.filter(g => !g.deleted && g.rep);
+  state.notes = all.filter(g => !g.deleted && g.note);
+  syncIndex(state.games); // background; views re-render through onIndexChange
   state.loaded = true;
   bump();
 }
@@ -290,6 +295,7 @@ function applyLook() {
 
 export async function initApp() {
   applyLook();
+  onIndexChange(() => bump());
   await loadGames();
   if (!state.games.length) { state.view = 'db'; bump(); }
   onLocalChange(() => scheduleSync());

@@ -34,8 +34,11 @@ export interface GameMeta {
   updated: number; // last change (ms) – last write wins
   dirty: 0 | 1; // changed locally, not uploaded yet
   deleted?: boolean; // tombstone
+  note?: PositionNote; // this record is a note on a position, not a game
   rep?: 'w' | 'b'; // this record is the owner's opening repertoire for that colour, not a game
 }
+
+export interface PositionNote { key: string; fen: string; text: string; tags: string[] }
 
 export const SHARDS = 64;
 export function shardOf(uid: string): number {
@@ -49,9 +52,11 @@ class CaissaDB extends Dexie {
   pgns!: Table<{ id: number; pgn: string }, number>;
   reports!: Table<Report & { id: number }, number>;
   kv!: Table<{ key: string; value: any }, string>;
+  posidx!: Table<{ id: number; sig: string; keys: Float64Array }, number>; // derived, device-local
   constructor() {
     super('caissa');
     this.version(1).stores({ games: '++id, uid, dirty, shard', pgns: 'id', reports: 'id', kv: 'key' });
+    this.version(2).stores({ posidx: 'id' });
   }
 }
 

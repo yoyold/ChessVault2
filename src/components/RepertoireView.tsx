@@ -7,10 +7,14 @@ import { MoveList } from './MoveList';
 import { patchGames } from '../lib/db';
 import { loadGames, openGame, setView, toast, useStore } from '../lib/store';
 import {
-  addLines, countMoves, ensureRep, gaps, loadRep, OpeningCard, openingCards, prefixStats, Side, sideName, suggestions,
+  addLines, countMoves, ensureRep, gaps, loadRep, OpeningCard, openingCards, prefixStats, removeLine, Side, sideName, suggestions,
 } from '../lib/repertoire';
 import { NEW_PER_DAY, queueOf, review } from '../lib/training';
-import type { Game } from '../lib/tree';
+import { Game, Node, stripSan } from '../lib/tree';
+
+// position of the last click, so the menu for a clicked move opens next to it
+const lastClick = { x: 0, y: 0 };
+if (typeof window !== 'undefined') window.addEventListener('mousedown', e => { lastClick.x = e.clientX; lastClick.y = e.clientY; }, true);
 
 /** "1. e4 c5 2. Nf3" from a list of SAN moves. */
 export function lineText(sans: string[], from = 0): string {
@@ -45,6 +49,8 @@ export function RepertoireView() {
   const [side, setSide] = useState<Side>('w');
   const [min, setMin] = useState(2);
   const [session, setSession] = useState<OpeningCard[] | null>(null);
+  const [menu, setMenu] = useState<{ path: string[]; x: number; y: number } | null>(null);
+  const pathOf = (n: Node) => { const p: string[] = []; let x: Node | null = n; while (x && x.parent) { p.unshift(stripSan(x.san)); x = x.parent; } return p; };
   const { meta, game, queue, loading } = useRepertoire(side);
 
   const stats = useMemo(() => prefixStats(games, side), [games, side, settings.me]);
@@ -96,9 +102,9 @@ export function RepertoireView() {
 
           <div className="grid2">
             <div className="card rep-tree">
-              <div className="exp-sub" style={{ borderTop: 0 }}>Repertoire mit {sideName(side)}</div>
+              <div className="exp-sub" style={{ borderTop: 0 }}>Repertoire mit {sideName(side)} <span className="muted">· Zug anklicken zum Öffnen oder Löschen</span></div>
               {game && game.root.children.length
-                ? <MoveList root={game.root} cur={game.root} classes={new Map()} onSelect={n => { const p: string[] = []; let x: any = n; while (x.parent) { p.unshift(x.san.replace(/[+#!?]/g, '')); x = x.parent; } edit(p); }} onContext={() => {}} />
+                ? <MoveList root={game.root} cur={game.root} classes={new Map()} onSelect={n => setMenu({ path: pathOf(n), x: lastClick.x, y: lastClick.y })} onContext={(n, x, y) => setMenu({ path: pathOf(n), x, y })} />
                 : <div className="muted pad">Noch keine Züge.</div>}
             </div>
 
@@ -144,6 +150,18 @@ export function RepertoireView() {
             </div>
           </div>
         </>
+      )}
+      {menu && (
+        <div className="ctx-back" onClick={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null); }}>
+          <div className="menu-pop fixed" style={{ left: Math.min(menu.x, window.innerWidth - 300), top: Math.min(menu.y, window.innerHeight - 140) }}>
+            <button onClick={() => edit(menu.path)}>Am Brett öffnen</button>
+            <button onClick={async () => {
+              const last = menu.path[menu.path.length - 1];
+              if (!confirm(`${last} und alle folgenden Züge dieser Variante aus dem Repertoire löschen?`)) return;
+              if (await removeLine(side, menu.path)) toast('Variante gelöscht.');
+            }}>Ab {menu.path[menu.path.length - 1]} löschen</button>
+          </div>
+        </div>
       )}
     </div>
   );

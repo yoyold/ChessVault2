@@ -18,7 +18,8 @@ The user interface is in German.
 - **Opening trainer**: quizzes your repertoire moves on the same spaced-repetition schedule.
 - **Training**: your own mistakes and blunders as exercises, on a spaced-repetition schedule (SM-2: 1, 3, then growing days; failed ones after ten minutes).
 - **Tournaments**: your tournaments taken from the database with score, average opponent rating and performance; expandable down to the single game.
-- **Opening tree**: statistics from your own database for any move sequence, including matching games.
+- **Opening tree by position**: statistics from your own database for the current position – transpositions included – with the games that reach it. Any position can also be used as a database filter.
+- **Position notes**: text and tags attached to a position rather than a game; the note shows up in every game that reaches the position. A notes page lists and searches them.
 - **Statistics**: score by colour, opening (with accuracy), opponent strength, year, tournament, opponent and time control; rating history; errors per game; period filter; several own player names.
 - **Device sync** through a private GitHub repository and a **full backup** as a file.
 - Dark and light theme, adjustable display size, desktop and mobile.

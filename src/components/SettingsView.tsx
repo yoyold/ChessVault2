@@ -34,7 +34,7 @@ export function SettingsView() {
   };
   const exportAll = async () => {
     const pgns = await db.pgns.toArray();
-    download(`chessvault2-partien-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.map(p => p.pgn.trim()).join('\n\n') + '\n');
+    download(`chessvault2-partien-${new Date().toISOString().slice(0, 10)}.pgn`, pgns.map(p => p.pgn.trim()).filter(Boolean).join('\n\n') + '\n');
   };
   const backup = async () => download(`chessvault2-sicherung-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup(), 'application/json');
   const restore = async (file?: File) => {

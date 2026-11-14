@@ -8,8 +8,9 @@ export function normMoves(s: string): string {
   return s.replace(/\d+\.+/g, ' ').replace(/[+#!?]/g, '').replace(/0/g, 'O').trim().split(/\s+/).filter(Boolean).join(' ');
 }
 
-export function buildPredicate(f: Filter): (g: GameMeta) => boolean {
+export function buildPredicate(f: Filter, positionHits?: Set<number>): (g: GameMeta) => boolean {
   const tests: ((g: GameMeta) => boolean)[] = [];
+  if (f.fen.trim() && positionHits) tests.push(g => positionHits.has(g.id!));
   const words = norm(f.q).split(/\s+/).filter(Boolean);
   if (words.length) tests.push(g => {
     const hay = norm(`${g.white} ${g.black} ${g.event} ${g.site} ${g.opening} ${g.eco} ${g.date} ${g.tags.join(' ')} ${g.source}`);
@@ -50,7 +51,7 @@ export function buildPredicate(f: Filter): (g: GameMeta) => boolean {
 
 export function countActive(f: Filter): number {
   let n = 0;
-  for (const k of ['white', 'black', 'yearFrom', 'yearTo', 'eloMin', 'eloMax', 'ecoFrom', 'ecoTo', 'opening', 'moves', 'movesMin', 'movesMax', 'tc', 'tag'] as const) if (f[k].trim()) n++;
+  for (const k of ['white', 'black', 'yearFrom', 'yearTo', 'eloMin', 'eloMax', 'ecoFrom', 'ecoTo', 'opening', 'moves', 'movesMin', 'movesMax', 'tc', 'tag', 'fen'] as const) if (f[k].trim()) n++;
   if (!(f.res.w && f.res.d && f.res.b)) n++;
   if (f.favOnly) n++;
   if (f.analyzedOnly) n++;

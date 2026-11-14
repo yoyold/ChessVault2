@@ -4,7 +4,7 @@
 import { addGames, db, GameMeta, shardOf, updateGame } from './db';
 import { metaFromPgn } from './meta';
 import { parseGame, serializeGame } from './pgn';
-import { addMove, Game, newGame, Node, START_FEN, stripSan } from './tree';
+import { addMove, deleteNode, Game, newGame, Node, START_FEN, stripSan } from './tree';
 import { newState, ReviewState } from './training';
 import { loadGames, mySide, state } from './store';
 
@@ -60,6 +60,21 @@ export async function addLines(side: Side, lines: string[][]): Promise<number> {
     await loadGames();
   }
   return added;
+}
+
+/** Removes the move at the end of `path` together with everything after it. */
+export async function removeLine(side: Side, path: string[]): Promise<boolean> {
+  const rep = await loadRep(side);
+  if (!rep || !path.length) return false;
+  let n = rep.game.root;
+  for (const san of path) { const c = n.children.find(ch => stripSan(ch.san) === san); if (!c) return false; n = c; }
+  deleteNode(n);
+  const pgn = serializeGame(rep.game);
+  const { white, black, event, moves, plies, eco, opening } = metaFromPgn(pgn, 'Repertoire');
+  await updateGame(rep.id, { white, black, event, moves, plies, eco, opening }, pgn);
+  if (state.session.gameId === rep.id) { state.session.game = rep.game; state.session.cur = rep.game.root; state.session.dirty = false; }
+  await loadGames();
+  return true;
 }
 
 const mine = (ply: number, side: Side) => (ply % 2 === 0) === (side === 'w'); // ply = number of moves already played

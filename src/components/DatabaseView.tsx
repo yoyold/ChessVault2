@@ -3,6 +3,7 @@ import { db, deleteGames, GameMeta, patchGames } from '../lib/db';
 import { emptyFilter, loadGames, myNames, mySide, openGame, openNewGame, setFilter, startBackground, toast, useStore } from '../lib/store';
 import { buildPredicate, countActive, download, nGames, resultLabel } from '../lib/filter';
 import { Field, Icon, Modal } from './ui';
+import { findPosition, indexState } from '../lib/posindex';
 import { ImportDialog } from './ImportDialog';
 
 /** Result coloured from the owner's point of view: win green, loss red, draw grey; other people's games neutral. */
@@ -40,7 +41,7 @@ export function DatabaseView() {
   const box = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
-    const pred = buildPredicate(filter);
+    const pred = buildPredicate(filter, filter.fen.trim() ? new Set(findPosition(filter.fen.trim()).map(h => h.id)) : undefined);
     const out = games.filter(pred);
     const { key, dir } = sort;
     const val = (g: GameMeta): string | number =>
@@ -51,7 +52,7 @@ export function DatabaseView() {
       return c || (b.id ?? 0) - (a.id ?? 0); // ties: most recently added first
     });
     return out;
-  }, [games, filter, sort]);
+  }, [games, filter, sort, filter.fen.trim() ? indexState.version : 0]);
 
   useEffect(() => {
     const el = box.current;
@@ -147,6 +148,7 @@ export function DatabaseView() {
           <Field label="Zugzahl"><div className="range">{F('movesMin', 'min')}–{F('movesMax', 'max')}</div></Field>
           <Field label="Eröffnungsname">{F('opening', 'z. B. Sizilianisch / Sicilian')}</Field>
           <Field label="Zugfolge (Anfang)">{F('moves', '1. e4 c5 2. Nf3')}</Field>
+          <Field label="Stellung (FEN, auch mit Zugumstellung)">{F('fen', 'FEN einfügen')}</Field>
           <Field label="Bedenkzeit">
             <select value={filter.tc} onChange={e => setFilter({ tc: e.target.value })}>
               <option value="">alle</option>{['Bullet', 'Blitz', 'Rapid', 'Klassisch', 'Fernschach'].map(t => <option key={t}>{t}</option>)}
