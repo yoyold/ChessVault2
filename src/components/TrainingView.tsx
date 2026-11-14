@@ -9,7 +9,7 @@ import type { Report } from '../lib/report';
 import { buildCards, buildQueue, Card, Grade, NEW_PER_DAY, review } from '../lib/training';
 import { mySide, openGame, setView, startBackground, useStore } from '../lib/store';
 
-/** Lädt alle Reports und baut daraus die Trainingskarten. */
+/** Loads all reports and builds the training cards from them. */
 export function useCards(): { cards: Card[] | null; reload: () => void } {
   const { games, settings } = useStore();
   const [reports, setReports] = useState<Map<number, Report> | null>(null);
@@ -131,7 +131,7 @@ function Session({ cards, onDone }: { cards: Card[]; onDone: () => void }) {
       setPhase({ step: 'ask', tries: phase.tries + 1, hint: `${mv.san} hast du in der Partie gespielt – gesucht ist etwas Besseres.` });
       return;
     }
-    // Anderer Zug: kurz von der Engine prüfen lassen, ob er annähernd so gut ist wie der beste.
+    // A different move: let the engine check briefly whether it is nearly as good as the best one.
     setPhase({ step: 'checking' });
     const tries = phase.tries;
     let after: { cp?: number; mate?: number } | undefined;

@@ -16,7 +16,7 @@ export interface BoardProps {
   check: boolean;
   shapes: DrawShape[];
   badge?: { square: string; color: string; symbol: string } | null;
-  /** Vom Nutzer gezeichnete Pfeile/Felder der aktuellen Stellung; shapesKey wechselt mit der Stellung. */
+  /** Arrows/squares the user drew for the current position; shapesKey changes with the position. */
   userShapes?: DrawShape[];
   shapesKey?: number | string;
   onShapes?: (shapes: DrawShape[]) => void;
@@ -60,7 +60,7 @@ export function Board(p: BoardProps) {
       lastMove: p.lastMove,
       check: p.check,
       movable: { color: p.turn, dests: p.dests },
-      // Chessground verwirft gezeichnete Pfeile, sobald eine Stellung gesetzt wird – deshalb immer mitgeben.
+      // Chessground drops drawn arrows whenever a position is set, so always pass them along.
       drawable: { shapes: p.userShapes ?? [] },
     });
     api.current?.setAutoShapes(p.shapes);

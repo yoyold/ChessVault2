@@ -4,7 +4,7 @@ const table = data as unknown as Record<string, [string, string]>;
 
 export interface OpeningHit { eco: string; name: string; ply: number }
 
-/** Längste bekannte Eröffnung für eine Zugfolge (SAN ohne +/#). */
+/** Longest known opening for a move sequence (SAN without +/#). */
 export function findOpening(sans: string[]): OpeningHit | null {
   let key = '';
   let hit: OpeningHit | null = null;

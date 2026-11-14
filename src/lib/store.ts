@@ -151,7 +151,7 @@ export function openPgn(pgn: string) {
   bump();
 }
 
-/** Speichert die aktuelle Partie (neu oder als Update) inklusive Varianten, Kommentaren und Report. */
+/** Saves the current game (new or as an update) including variations, comments and report. */
 export async function saveSession() {
   const s = state.session;
   if (!s.game.root.children.length) { toast('Die Partie enthält noch keine Züge.', 'err'); return; }
@@ -185,8 +185,8 @@ export async function saveReport(id: number, report: Report, startsWhite = true)
   bump();
 }
 
-// ---------- Eigene Spielernamen ----------
-/** Mehrere Namen (z. B. Lichess-, Chess.com- und Turniername) werden mit Semikolon getrennt. */
+// ---------- The owner's player names ----------
+/** Several names (e.g. Lichess, Chess.com and over-the-board name) are separated by semicolons. */
 export function myNames(): string[] {
   return state.settings.me.split(';').map(s => s.trim().toLowerCase()).filter(Boolean);
 }
@@ -195,9 +195,9 @@ export function mySide(g: { white: string; black: string }, names = myNames()): 
   return w === b ? null : w ? 'w' : 'b';
 }
 
-// ---------- Hintergrundanalyse ----------
-// Erstellt Reports für viele Partien, während man normal weiterarbeitet. Die Engine arbeitet Aufträge
-// der Reihe nach ab; interaktive Analysen kommen zwischen zwei Stellungen dran.
+// ---------- Background analysis ----------
+// Creates reports for many games while the user keeps working. The engine processes jobs
+// one after another; interactive analysis gets its turn between two positions.
 const bgCtl: { cancelled: boolean; job?: Job } = { cancelled: false };
 export async function startBackground(ids: number[]) {
   if (state.bg) { toast('Es läuft bereits eine Hintergrundanalyse.', 'err'); return; }

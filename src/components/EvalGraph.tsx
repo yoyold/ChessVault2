@@ -3,13 +3,13 @@ import { formatScore, winPct } from '../lib/engine';
 import { CLASS_INFO, Report } from '../lib/report';
 import type { Node } from '../lib/tree';
 
-/** Bewertungsverlauf: ein Punkt je Halbzug, Hover zeigt Zug und Bewertung, Klick springt zur Stellung. */
+/** Evaluation graph: one point per ply, hover shows move and evaluation, click jumps to the position. */
 export function EvalGraph({ report, line, current, onPick }: { report: Report; line: Node[]; current: number; onPick: (i: number) => void }) {
   const [hover, setHover] = useState<number | null>(null);
   const n = report.evals.length;
   const W = 1000, H = 300;
   const fx = (i: number) => (n > 1 ? i / (n - 1) : 0); // 0..1
-  const fy = (i: number) => 1 - winPct(report.evals[i]) / 100; // 0 oben (Weiß gewinnt) .. 1 unten
+  const fy = (i: number) => 1 - winPct(report.evals[i]) / 100; // 0 top (White wins) .. 1 bottom
   let d = '';
   for (let i = 0; i < n; i++) d += `${i ? ' L' : 'M'}${(fx(i) * W).toFixed(1)},${(fy(i) * H).toFixed(1)}`;
   const pct = (v: number) => `${(v * 100).toFixed(2)}%`;

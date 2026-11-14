@@ -1,6 +1,6 @@
 import { Game, Node, Shape, addMove, newRoot, START_FEN } from './tree';
 
-/** Zerlegt einen PGN-Text in einzelne Partien. */
+/** Splits a PGN text into individual games. */
 export function splitPgn(text: string): string[] {
   const games: string[] = [];
   const lines = text.replace(/\r/g, '').replace(/^\uFEFF/, '').split('\n');
@@ -39,7 +39,7 @@ export function movetextOf(pgn: string): string {
   return pgn.replace(HEADER_RE, '').trim();
 }
 
-/** Schnelle Extraktion der Hauptvariante (ohne Legalitätsprüfung) – für den Massenimport. */
+/** Fast extraction of the main line (no legality check) – for bulk import. */
 export function quickMainline(movetext: string): string[] {
   let s = movetext.replace(/\{[^}]*\}/g, ' ').replace(/;[^\n]*/g, ' ');
   let prev;
@@ -62,7 +62,7 @@ export const NAG_SYMBOL: Record<number, string> = {
   22: '⊙', 32: '⟳', 26: '○', 36: '↑', 40: '→', 132: '⇆', 138: '⊕', 140: '∆', 142: '⌓',
 };
 
-/** Auswahl wie in ChessBase: je Gruppe höchstens ein Symbol pro Zug. */
+/** Selection as in ChessBase: at most one symbol per group and move. (Labels are UI text and stay German.) */
 export const NAG_GROUPS: { title: string; items: [number, string][] }[] = [
   { title: 'Zug', items: [[1, 'Guter Zug'], [2, 'Fehler'], [3, 'Glänzender Zug'], [4, 'Grober Fehler'], [5, 'Interessanter Zug'], [6, 'Zweifelhafter Zug'], [7, 'Einziger Zug'], [146, 'Neuerung']] },
   { title: 'Stellung', items: [[18, 'Weiß steht auf Gewinn'], [16, 'Weiß steht klar besser'], [14, 'Weiß steht etwas besser'], [10, 'Ausgeglichen'], [13, 'Unklar'], [44, 'Mit Kompensation'], [15, 'Schwarz steht etwas besser'], [17, 'Schwarz steht klar besser'], [19, 'Schwarz steht auf Gewinn']] },
@@ -72,7 +72,7 @@ export const NAG_GROUPS: { title: string; items: [number, string][] }[] = [
 const BRUSH_LETTER: Record<string, string> = { green: 'G', red: 'R', blue: 'B', yellow: 'Y' };
 const LETTER_BRUSH: Record<string, string> = { G: 'green', R: 'red', B: 'blue', Y: 'yellow', O: 'yellow', C: 'blue' };
 
-/** Trennt grafische Kommentare ([%cal …] Pfeile, [%csl …] Felder) vom Kommentartext. */
+/** Separates graphical annotations ([%cal …] arrows, [%csl …] squares) from the comment text. */
 function splitShapes(c: string): { text: string; shapes: Shape[] } {
   const shapes: Shape[] = [];
   const text = c.replace(/\[%c(al|sl)\s+([^\]]*)\]/g, (_m, _k, list: string) => {
@@ -92,7 +92,7 @@ function shapeTags(shapes?: Shape[]): string {
   return (sq.length ? `[%csl ${sq.join(',')}]` : '') + (ar.length ? `[%cal ${ar.join(',')}]` : '');
 }
 
-/** Vollständiger Parser mit Varianten, Kommentaren und NAGs. */
+/** Full parser with variations, comments and NAGs. */
 export function parseGame(pgn: string): Game {
   const headers = parseHeaders(pgn);
   const text = movetextOf(pgn);
@@ -102,7 +102,7 @@ export function parseGame(pgn: string): Game {
   let i = 0;
   const n = text.length;
   let broken = false;
-  let pendingPre = ''; // Kommentar direkt nach „(“ gehört vor den ersten Zug der Variante
+  let pendingPre = ''; // a comment right after "(" belongs before the first move of the variation
   let afterOpen = false;
   while (i < n && !broken) {
     const ch = text[i];
@@ -157,7 +157,7 @@ export function serializeGame(g: Game): string {
   { const c = [g.root.comment, shapeTags(g.root.shapes)].filter(Boolean).join(' '); if (c) out.push(`{${c.replace(/}/g, ')')}}`); }
   writeLine(g.root, out, true);
   out.push(h.Result);
-  // Zeilenumbruch bei ~80 Zeichen
+  // wrap lines at ~80 characters
   const lines: string[] = [];
   let line = '';
   for (const t of out) {
@@ -199,5 +199,5 @@ function writeLine(from: Node, out: string[], force: boolean) {
   }
 }
 
-/** Entfernt Lichess/Chess.com-Steuertags wie [%clk …] für die Anzeige. */
+/** Strips Lichess/Chess.com control tags such as [%clk …] for display. */
 export const cleanComment = (c?: string) => (c ?? '').replace(/\[%[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();

@@ -1,9 +1,9 @@
-// Dünne UCI-Schicht über Stockfish (WASM, läuft komplett im Browser als Web Worker).
+// Thin UCI layer over Stockfish (WASM, runs entirely in the browser as a Web Worker).
 export interface PV {
   depth: number;
-  cp?: number; // aus Sicht von Weiß
-  mate?: number; // aus Sicht von Weiß (positiv = Weiß setzt matt)
-  pv: string[]; // UCI-Züge
+  cp?: number; // from White's point of view
+  mate?: number; // from White's point of view (positive = White mates)
+  pv: string[]; // UCI moves
 }
 
 export interface AnalyzeOpts { depth?: number; movetime?: number; multipv?: number }
@@ -47,7 +47,7 @@ export class Engine {
     return this.ready;
   }
 
-  /** Startet eine Analyse. Jobs laufen strikt nacheinander; über job.cancel() abbrechbar. */
+  /** Starts an analysis. Jobs run strictly one after another; cancel with job.cancel(). */
   analyze(fen: string, opts: AnalyzeOpts, onUpdate?: (lines: PV[]) => void): { job: Job; done: Promise<PV[]> } {
     const job = new Job(this);
     const done = this.chain.then(() => this.exec(fen, opts, job, onUpdate));
@@ -104,7 +104,7 @@ export function formatScore(pv: { cp?: number; mate?: number } | undefined): str
   return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
 }
 
-/** Gewinnwahrscheinlichkeit für Weiß in Prozent (Lichess-Formel). */
+/** Win probability for White in percent (Lichess formula). */
 export function winPct(pv: { cp?: number; mate?: number } | undefined): number {
   if (!pv) return 50;
   if (pv.mate !== undefined) return pv.mate > 0 ? 100 : 0;

@@ -5,7 +5,7 @@ import { buildPredicate, countActive, download, nGames, resultLabel } from '../l
 import { Field, Icon, Modal } from './ui';
 import { ImportDialog } from './ImportDialog';
 
-/** Ergebnis farbig aus eigener Sicht: Sieg grün, Niederlage rot, Remis grau; fremde Partien neutral. */
+/** Result coloured from the owner's point of view: win green, loss red, draw grey; other people's games neutral. */
 function outcome(g: GameMeta, names: string[]): 'win' | 'loss' | 'draw' | null {
   const side = mySide(g, names);
   if (!side || g.result === '*') return null;

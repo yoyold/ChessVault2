@@ -20,14 +20,14 @@ export const CLASS_ORDER: MoveClass[] = ['great', 'best', 'excellent', 'good', '
 export interface PosEval { cp?: number; mate?: number; best?: string; bestSan?: string; pv?: string }
 export interface MoveReport {
   cls: MoveClass; loss: number; acc: number;
-  // nur bei Fehlern/Patzern – Grundlage der Trainingskarten:
+  // only for mistakes/blunders – the basis of the training cards:
   fen?: string; prev?: string; san?: string;
 }
 export interface Report {
   depth: number;
-  sans: string[]; // Hauptvariante, zu der der Report gehört
-  evals: PosEval[]; // n+1 Stellungen
-  moves: MoveReport[]; // n Züge
+  sans: string[]; // main line the report belongs to
+  evals: PosEval[]; // n+1 positions
+  moves: MoveReport[]; // n moves
   accW: number;
   accB: number;
   created: number;
@@ -55,7 +55,7 @@ function accuracyOf(list: number[]): number {
   return Math.round(((mean + harm) / 2) * 10) / 10;
 }
 
-/** Analysiert die Hauptvariante Zug für Zug und erstellt den Partie-Report. */
+/** Analyses the main line move by move and builds the game report. */
 export async function analyzeGame(
   rootFen: string,
   line: Node[],
@@ -102,7 +102,7 @@ export async function analyzeGame(
     else if (isBest || loss < 0.5) {
       const second = seconds[i];
       const gap = second ? before - pov(second) : 0;
-      // „Starker Zug": einziger guter Zug – aber kein simples Zurückschlagen und keine erzwungene Schachabwehr
+      // "Great move": the only good move – but not a plain recapture and not a forced reply to a check
       const recapture = i > 0 && line[i].san.includes('x') && line[i].uci.slice(2, 4) === line[i - 1].uci.slice(2, 4);
       const inCheck = i > 0 && /[+#]/.test(line[i - 1].san);
       cls = isBest && gap >= 25 && after >= 35 && before <= 95 && !recapture && !inCheck ? 'great' : 'best';
@@ -125,7 +125,7 @@ export function countClasses(r: Report, startsWhite: boolean): Record<MoveClass,
   return out;
 }
 
-/** Ungenauigkeiten / Fehler / Patzer je Seite – für Statistik ohne Laden der Reports. */
+/** Inaccuracies / mistakes / blunders per side – for statistics without loading the reports. */
 export function errorCounts(r: Report, startsWhite: boolean): { w: [number, number, number]; b: [number, number, number] } {
   const c = countClasses(r, startsWhite);
   return { w: [c.inaccuracy[0], c.mistake[0], c.blunder[0]], b: [c.inaccuracy[1], c.mistake[1], c.blunder[1]] };

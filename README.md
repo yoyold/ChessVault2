@@ -1,55 +1,58 @@
-# ChessVault2 – Schachdatenbank im Browser
+# ChessVault2 – a chess database in the browser
 
-Eine freie, webbasierte Partiedatenbank: Partien importieren, durchsuchen, mit Stockfish analysieren, Partie-Reports erstellen
-und die eigenen Fehler gezielt trainieren. Läuft als rein statische Web-App – kein eigener Server nötig.
+A free, web-based game database: import your games, search and filter them, analyse with Stockfish, generate game
+reports and train on your own mistakes. It is a purely static web app – no server of your own is needed.
 
-## Funktionen
+The user interface is in German.
 
-- **Übersicht**: letzte Partien, aktuelle Form, Elo, heutiges Training.
-- **Datenbank**: Import aus PGN-Dateien (auch große Sammlungen), per Einfügen, von **Lichess** und **Chess.com**. Duplikate werden erkannt.
-- **Suchen & Filtern**: Volltextsuche, Weiß/Schwarz (Farben ignorieren), Ergebnis, Jahr, Elo, ECO-Bereich, Eröffnungsname, Zugfolge, Zugzahl, Bedenkzeit, Schlagwörter, Favoriten, „nur mit Report“.
-- **Analysebrett**: Live-Analyse mit Stockfish (1–5 Varianten), Bewertungsleiste, Varianten eingeben/hochstufen/löschen, Kommentare, Zugsymbole, Partiedaten bearbeiten, PGN/FEN einfügen und kopieren.
-- **Partie-Report**: jeder Zug wird bewertet (Starker Zug … Patzer), Genauigkeit je Seite, Bewertungsgraph, Schlüsselmomente mit besserem Zug.
-- **Hintergrundanalyse**: Reports für viele Partien, während man normal weiterarbeitet.
-- **Training**: die eigenen Fehler und Patzer als Aufgaben, mit Wiederholungsplan (SM-2: 1, 3, dann wachsende Tage; falsch gelöste nach zehn Minuten).
-- **Turniere**: eigene Turniere aus der Datenbank mit Punkten, Gegnerschnitt und Turnierleistung; aufklappbar bis zur einzelnen Partie.
-- **Eröffnungsbaum**: Statistik aus der eigenen Datenbank zu jeder Zugfolge, inklusive passender Partien.
-- **Statistik**: Score nach Farbe, Eröffnung (mit Genauigkeit), Gegnerstärke, Jahr, Turnier, Gegner, Bedenkzeit; Elo-Verlauf; Fehler pro Partie; Zeitraumfilter; mehrere eigene Spielernamen.
-- **Geräte-Sync** über ein privates GitHub-Repository und **vollständige Sicherung** als Datei.
-- Dunkles/helles Design, für Desktop und Mobil.
+## Features
 
-## Lokal starten
+- **Overview**: recent games, current form, rating, today's training.
+- **Database**: import from PGN files (large collections too), by pasting, or straight from **Lichess** and **Chess.com**. Duplicates are detected.
+- **Search and filters**: full-text search, White/Black (optionally ignoring colours), result, year, rating, ECO range, opening name, move sequence, number of moves, time control, tags, favourites, "with report only". Results are coloured from your own point of view.
+- **Analysis board**: live Stockfish analysis (1–5 lines), evaluation bar, entering/promoting/deleting variations, editing game details, pasting and copying PGN/FEN.
+- **Annotating**: move, position and motif symbols, text before and after a move, coloured arrows and squares (stored as `%cal`/`%csl`).
+- **Game report**: every move is classified (great move … blunder), accuracy per side, evaluation graph with hover and click-to-jump, key moments with the better move.
+- **Background analysis**: reports for many games while you keep working.
+- **Training**: your own mistakes and blunders as exercises, on a spaced-repetition schedule (SM-2: 1, 3, then growing days; failed ones after ten minutes).
+- **Tournaments**: your tournaments taken from the database with score, average opponent rating and performance; expandable down to the single game.
+- **Opening tree**: statistics from your own database for any move sequence, including matching games.
+- **Statistics**: score by colour, opening (with accuracy), opponent strength, year, tournament, opponent and time control; rating history; errors per game; period filter; several own player names.
+- **Device sync** through a private GitHub repository and a **full backup** as a file.
+- Dark and light theme, adjustable display size, desktop and mobile.
+
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Kostenlos hosten (GitHub Pages)
+## Free hosting (GitHub Pages)
 
-1. Auf GitHub ein Repository anlegen (z. B. `ChessVault2`) und dieses Projekt hineinpushen (Branch `main`).
-2. Im Repository: **Settings → Pages → Build and deployment → Source: „GitHub Actions“**.
-3. Der mitgelieferte Workflow `.github/workflows/deploy.yml` baut und veröffentlicht die App bei jedem Push.
-   Sie ist danach unter `https://<benutzer>.github.io/<repo>/` erreichbar.
+1. Push this project to a GitHub repository (branch `main`).
+2. In the repository: **Settings → Pages → Build and deployment → Source: "GitHub Actions"**.
+3. The included workflow `.github/workflows/deploy.yml` builds and publishes the app on every push.
+   It is then available at `https://<user>.github.io/<repo>/`.
 
-Alternativ funktioniert jeder statische Hoster (Cloudflare Pages, Netlify, Codeberg Pages): Build-Befehl `npm run build`, Ausgabeordner `dist`.
+Any static host works as well (Cloudflare Pages, Netlify, Codeberg Pages): build command `npm run build`, output folder `dist`.
 
-## Sync zwischen Geräten
+## Sync between devices
 
-Der Browser speichert die Datenbank lokal (IndexedDB) als schnellen Arbeitsstand. Damit auf jedem Gerät dieselben Daten liegen,
-synchronisiert ChessVault2 sie über ein **privates GitHub-Repository**, das nur dir gehört:
+The browser keeps the database locally (IndexedDB) as a fast working copy. To have the same data on every device,
+ChessVault2 syncs it through a **private GitHub repository** that belongs to you alone:
 
-1. Privates Repository anlegen (z. B. `caissa-data`), dabei „Add a README file“ anhaken.
-2. Ein *Fine-grained personal access token* erstellen, beschränkt auf dieses Repository, Berechtigung **Contents: Read and write**.
-3. In ChessVault2 unter **Einstellungen → Geräte-Sync** Repository (`benutzer/caissa-data`) und Token eintragen – auf jedem Gerät einmal.
+1. Create a private repository (e.g. `chessvault-data`) and tick "Add a README file".
+2. Create a *fine-grained personal access token* limited to that repository, with permission **Contents: Read and write**.
+3. In the app, under **Einstellungen → Geräte-Sync**, enter the repository (`user/chessvault-data`) and the token – once per device.
 
-Danach läuft der Sync automatisch (beim Start, nach Änderungen, beim Zurückkehren in den Tab). Pro Partie gewinnt die jüngste Änderung;
-Löschungen werden mit übertragen. Synchronisiert werden Partien mit Varianten und Kommentaren, Reports, Lernstand des Trainings,
-Favoriten und Schlagwörter. Die Daten liegen unverschlüsselt als JSON-Pakete auf dem Branch `caissa-data`; der Branch wird bei jedem
-Sync ohne Historie neu geschrieben, damit das Repository nicht anwächst.
+After that the sync runs automatically (on start, after changes, when returning to the tab). Per game the most recent change wins;
+deletions are synced too. Synced data: games with variations and comments, reports, training state, favourites and tags.
+The data is stored unencrypted as JSON shards on the branch `caissa-data`; the branch is rewritten without history on every sync
+so the repository does not grow.
 
-## Technik & Lizenzen
+## Tech and licences
 
 React, Vite, TypeScript (MIT) · chess.js (BSD-2) · Chessground (GPL-3.0) · Stockfish 19 lite WASM via stockfish.js (GPL-3.0) ·
-Dexie (Apache-2.0) · Schriften Archivo, Source Sans 3, JetBrains Mono (OFL) · Eröffnungsnamen aus lichess-org/chess-openings (CC0).
-ChessVault2 selbst steht unter der GPL-3.0-or-later.
+Dexie (Apache-2.0) · fonts Archivo, Source Sans 3, JetBrains Mono (OFL) · opening names from lichess-org/chess-openings (CC0).
+ChessVault2 itself is licensed under GPL-3.0-or-later.

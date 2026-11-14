@@ -4,7 +4,7 @@ import { findOpening } from '../lib/openings';
 import { WdlBar } from './ui';
 import { resultLabel } from '../lib/filter';
 
-/** Eröffnungsbaum aus der eigenen Datenbank: Welche Züge wurden nach der aktuellen Zugfolge gespielt? */
+/** Opening tree from the user's own database: which moves were played after the current move sequence? */
 export function Explorer({ sans, standard, onPlay }: { sans: string[]; standard: boolean; onPlay: (san: string) => void }) {
   const { games } = useStore();
   const prefix = sans.join(' ');

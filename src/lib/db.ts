@@ -15,25 +15,25 @@ export interface GameMeta {
   round: string;
   eco: string;
   opening: string;
-  moves: string; // Hauptvariante, SAN ohne +/#, leerzeichengetrennt
+  moves: string; // main line, SAN without +/#, space-separated
   plies: number;
-  tc: string; // Bullet | Blitz | Rapid | Klassisch | Fernschach | ''
+  tc: string; // Bullet | Blitz | Rapid | Klassisch | Fernschach | '' (stored values are German)
   source: string;
   fav: boolean;
   tags: string[];
   accW?: number;
   accB?: number;
-  errW?: [number, number, number]; // Ungenauigkeiten, Fehler, Patzer von Weiß
+  errW?: [number, number, number]; // White's inaccuracies, mistakes, blunders
   errB?: [number, number, number];
-  train?: Record<string, import('./training').ReviewState>; // Lernstand der Trainingskarten dieser Partie
+  train?: Record<string, import('./training').ReviewState>; // review state of this game's training cards
   hash: string;
   added: number;
-  // Sync-Felder
-  uid: string; // geräteübergreifend stabile Kennung
-  shard: number; // Sync-Paket (0–63)
-  updated: number; // letzte Änderung (ms) – „letzte Änderung gewinnt“
-  dirty: 0 | 1; // lokal geändert, noch nicht hochgeladen
-  deleted?: boolean; // Löschmarke
+  // sync fields
+  uid: string; // identifier that is stable across devices
+  shard: number; // sync shard (0–63)
+  updated: number; // last change (ms) – last write wins
+  dirty: 0 | 1; // changed locally, not uploaded yet
+  deleted?: boolean; // tombstone
 }
 
 export const SHARDS = 64;
@@ -57,11 +57,11 @@ class CaissaDB extends Dexie {
 export const db = new CaissaDB();
 
 let changeListener: (() => void) | null = null;
-/** Wird nach jeder lokalen Änderung aufgerufen (löst den Auto-Sync aus). */
+/** Called after every local change (triggers the automatic sync). */
 export function onLocalChange(fn: () => void) { changeListener = fn; }
 const changed = () => changeListener?.();
 
-/** Fügt neue Partien hinzu; vorhandene Löschmarken mit gleicher uid werden ersetzt. */
+/** Adds new games; existing tombstones with the same uid are replaced. */
 export async function addGames(items: { meta: GameMeta; pgn: string }[]): Promise<void> {
   if (!items.length) return;
   await db.transaction('rw', db.games, db.pgns, async () => {
@@ -93,7 +93,7 @@ export async function patchGames(ids: number[], fn: (g: GameMeta) => Partial<Gam
   changed();
 }
 
-/** Löscht Partien (als Löschmarke, damit die Löschung auf andere Geräte synchronisiert wird). */
+/** Deletes games (as tombstones, so the deletion syncs to other devices). */
 export async function deleteGames(ids: number[]) {
   await db.transaction('rw', db.games, db.pgns, db.reports, async () => {
     const now = Date.now();

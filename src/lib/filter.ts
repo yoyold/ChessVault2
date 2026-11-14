@@ -3,7 +3,7 @@ import type { Filter } from './store';
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Normalisiert eine eingegebene Zugfolge („1. e4 c5 2. Nf3“) auf das Speicherformat. */
+/** Normalises a typed move sequence ("1. e4 c5 2. Nf3") to the storage format. */
 export function normMoves(s: string): string {
   return s.replace(/\d+\.+/g, ' ').replace(/[+#!?]/g, '').replace(/0/g, 'O').trim().split(/\s+/).filter(Boolean).join(' ');
 }
@@ -65,7 +65,7 @@ export function download(name: string, text: string, type = 'application/x-chess
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-/** „1 Partie“ / „3 Partien“ */
+/** German singular/plural: "1 Partie" / "3 Partien" */
 export const nGames = (n: number) => `${n.toLocaleString('de')} ${n === 1 ? 'Partie' : 'Partien'}`;
 
 export const resultLabel = (r: string) => (r === '1/2-1/2' ? '½–½' : r === '*' ? '*' : r.replace('-', '–'));

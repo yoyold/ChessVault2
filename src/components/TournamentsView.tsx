@@ -20,7 +20,7 @@ const fmtDate = (d: string) => {
 };
 const fmtPts = (p: number) => (p % 1 ? (Math.floor(p) ? Math.floor(p) : '') + '½' : String(p));
 
-/** Turnierleistung: Gegnerschnitt + Differenz aus dem Punkteanteil (auf ±800 begrenzt, wie bei der FIDE). */
+/** Tournament performance: average opponent rating + difference derived from the score (capped at ±800, as FIDE does). */
 function performance(points: number, games: number, avgOpp: number): number {
   const p = Math.min(0.99, Math.max(0.01, points / games));
   return Math.round(avgOpp + Math.max(-800, Math.min(800, -400 * Math.log10(1 / p - 1))));
@@ -34,7 +34,7 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
     if (!online && (ONLINE.test(g.event) || /lichess\.org|chess\.com/i.test(g.site))) continue;
     const white = side === 'w';
     const pts = g.result === '*' ? null : g.result === '1/2-1/2' ? 0.5 : (g.result === '1-0') === white ? 1 : 0;
-    // gleicher Turniername in verschiedenen Jahren = verschiedene Turniere
+    // same event name in different years = different tournaments
     const key = g.event.trim().toLowerCase() + '|' + (g.year || '');
     const row: Row = { g, white, opp: white ? g.black : g.white, oppElo: white ? g.blackElo : g.whiteElo, myElo: white ? g.whiteElo : g.blackElo, pts };
     const list = map.get(key);

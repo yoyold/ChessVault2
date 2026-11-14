@@ -35,7 +35,7 @@ export async function fetchLichess(user: string, max: number, perf: string, onSt
   if (res.status === 404) throw new Error(`Lichess-Benutzer „${user}“ nicht gefunden.`);
   if (res.status === 429) throw new Error('Lichess meldet zu viele Anfragen – bitte eine Minute warten.');
   if (!res.ok) throw new Error(`Lichess-Fehler ${res.status}`);
-  // Stream lesen, um Fortschritt anzeigen zu können
+  // read the stream so progress can be shown
   const reader = res.body?.getReader();
   if (!reader) return res.text();
   const dec = new TextDecoder();

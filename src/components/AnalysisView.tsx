@@ -83,7 +83,7 @@ export function AnalysisView() {
     if (report) line.forEach((n, i) => { if (report.moves[i]) m.set(n.id, report.moves[i].cls); });
     return m;
   }, [report, line.length, root]);
-  // Index der aktuellen Stellung in der Hauptvariante (0 = Ausgangsstellung, -1 = Nebenvariante)
+  // Index of the current position in the main line (0 = starting position, -1 = side line)
   const posIdx = cur === root ? 0 : mainIdx.has(cur.id) ? mainIdx.get(cur.id)! + 1 : -1;
   const curMove = report && posIdx > 0 ? report.moves[posIdx - 1] : null;
 
@@ -156,7 +156,7 @@ export function AnalysisView() {
   const cancelReport = () => { if (ctl.current) { ctl.current.cancelled = true; ctl.current.job?.cancel(); } };
   useEffect(() => () => cancelReport(), []);
 
-  // ----- Bewertung, Pfeile, Badge -----
+  // ----- Evaluation, arrows, badge -----
   const evalNow = lines[0] ?? (report && posIdx >= 0 ? report.evals[posIdx] : undefined);
   const terminal = chess.isCheckmate() ? { mate: turn === 'white' ? -0.5 : 0.5 } : gameOver ? { cp: 0 } : undefined;
   const shown = terminal ?? evalNow;

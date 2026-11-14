@@ -11,9 +11,9 @@ export interface Node {
   parent: Node | null;
   children: Node[];
   comment?: string;
-  pre?: string; // Kommentar vor dem Zug (am Anfang einer Variante)
+  pre?: string; // comment before the move (at the start of a variation)
   nags?: number[];
-  shapes?: Shape[]; // farbige Pfeile und Felder
+  shapes?: Shape[]; // coloured arrows and squares
 }
 
 export interface Shape { orig: string; dest?: string; brush: string }
@@ -42,7 +42,7 @@ export function newGame(fen = START_FEN): Game {
 
 export type MoveInput = string | { from: string; to: string; promotion?: string };
 
-/** Fügt einen Zug an (oder liefert das bestehende Kind). null = illegal. */
+/** Appends a move (or returns the existing child). null = illegal. */
 export function addMove(parent: Node, move: MoveInput): Node | null {
   const c = new Chess(parent.fen);
   let m;
@@ -63,7 +63,7 @@ export function mainline(root: Node): Node[] {
   return out;
 }
 
-/** Pfad von der Wurzel (exklusive) bis zum Knoten (inklusive). */
+/** Path from the root (exclusive) to the node (inclusive). */
 export function pathTo(node: Node): Node[] {
   const out: Node[] = [];
   let n: Node | null = node;
@@ -90,7 +90,7 @@ export function deleteNode(node: Node): Node {
   return p;
 }
 
-/** Variante eine Stufe nach vorne holen (bis zur Hauptvariante). */
+/** Promote a variation by one level (up to the main line). */
 export function promote(node: Node) {
   let n: Node = node;
   while (n.parent) {

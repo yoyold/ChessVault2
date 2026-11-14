@@ -1,7 +1,7 @@
-// Geräteübergreifender Sync über ein privates GitHub-Repository.
-// Die Datenbank liegt dort als 64 JSON-Pakete (shards/00.json … 3f.json) auf einem eigenen Branch.
-// Jeder Sync schreibt einen Commit OHNE Vorgänger und setzt den Branch hart um – so wächst das Repo nicht an.
-// Konflikte: pro Partie gewinnt die jüngste Änderung; Löschungen werden als Löschmarken übertragen.
+// Cross-device sync through a private GitHub repository.
+// The database lives there as 64 JSON shards (shards/00.json … 3f.json) on a branch of its own.
+// Every sync writes a commit WITHOUT a parent and force-moves the branch, so the repository does not grow.
+// Conflicts: per game the most recent change wins; deletions travel as tombstones.
 import { db, GameMeta, kvGet, kvSet, SHARDS } from './db';
 import type { Report } from './report';
 
@@ -36,7 +36,7 @@ async function gh(cfg: SyncConfig, path: string, init: RequestInit & { raw?: boo
   });
   if (!res.ok) {
     let msg = res.statusText;
-    try { msg = (await res.json()).message || msg; } catch { /* leer */ }
+    try { msg = (await res.json()).message || msg; } catch { /* ignore */ }
     throw new HttpError(res.status, msg);
   }
   return init.raw ? res.text() : res.json();
@@ -120,7 +120,7 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
   let pulled = 0, pushed = 0;
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    // 1. Stand im Repo lesen
+    // 1. Read the state in the repository
     onStatus('Prüfe Cloud-Stand …');
     let headSha: string | null = null;
     try { headSha = (await gh(cfg, refPath)).object.sha; }
@@ -134,7 +134,7 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
       for (const t of tree.tree) if (t.type === 'blob' && t.path.startsWith('shards/')) remote[t.path] = t.sha;
     }
 
-    // 2. Geänderte Pakete herunterladen und einmischen
+    // 2. Download changed shards and merge them
     const state = await kvGet<{ repo: string; tree: Record<string, string> }>('syncState', { repo: '', tree: {} });
     const last = state.repo === `${cfg.repo}#${cfg.branch}` ? state.tree : {};
     const toPull = Object.keys(remote).filter(p => last[p] !== remote[p]);
@@ -145,13 +145,13 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
       last[toPull[i]] = remote[toPull[i]];
       await kvSet('syncState', { repo: `${cfg.repo}#${cfg.branch}`, tree: last });
     }
-    // Neues Repo/Branch: alles Lokale gilt als noch nicht hochgeladen
+    // New repository/branch: everything local counts as not yet uploaded
     if (state.repo !== `${cfg.repo}#${cfg.branch}` && !toPull.length) {
       await db.games.toCollection().modify({ dirty: 1 });
       await kvSet('syncState', { repo: `${cfg.repo}#${cfg.branch}`, tree: last });
     }
 
-    // 3. Lokale Änderungen hochladen
+    // 3. Upload local changes
     const dirty = await db.games.where('dirty').equals(1).toArray();
     if (!dirty.length) break;
     const shards = [...new Set(dirty.map(g => g.shard))].filter(s => s >= 0 && s < SHARDS);
@@ -168,7 +168,7 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
       method: 'POST',
       body: JSON.stringify({ message: `ChessVault2 Sync ${new Date().toISOString()}`, tree: tree.sha, parents: [] }),
     });
-    // Hat inzwischen ein anderes Gerät geschrieben? Dann von vorn.
+    // Did another device write in the meantime? Then start over.
     let nowSha: string | null = null;
     try { nowSha = (await gh(cfg, refPath)).object.sha; }
     catch (e) { if (!(e instanceof HttpError && (e.status === 404 || e.status === 409))) throw e; }
@@ -187,14 +187,14 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
   return { pulled, pushed };
 }
 
-/** Vollständige Sicherung (Partien, Varianten, Reports, Lernstand, Schlagwörter) als eine JSON-Datei. */
+/** Full backup (games, variations, reports, training state, tags) as a single JSON file. */
 export async function exportBackup(): Promise<string> {
   const records: SyncRecord[] = [];
   for (let s = 0; s < SHARDS; s++) records.push(...(await buildShard(s)));
   return JSON.stringify({ app: 'caissa', format: 1, created: new Date().toISOString(), records });
 }
 
-/** Spielt eine Sicherung ein. Pro Partie gewinnt die jüngere Fassung; nichts wird gelöscht. */
+/** Restores a backup. Per game the newer version wins; nothing is deleted. */
 export async function importBackup(text: string): Promise<number> {
   const data = JSON.parse(text);
   if (data?.app !== 'caissa' || !Array.isArray(data.records)) throw new Error('Das ist keine ChessVault2-Sicherungsdatei.');

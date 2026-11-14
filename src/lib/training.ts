@@ -1,11 +1,11 @@
-// Fehlertraining: Stellungen, in denen man selbst einen Fehler oder Patzer gespielt hat,
-// werden als Aufgaben wiederholt – mit wachsenden Abständen (SM-2, tagesgenau).
+// Mistake training: positions in which the owner played a mistake or blunder
+// come back as exercises at growing intervals (SM-2, day-granular).
 import type { GameMeta } from './db';
 import type { PosEval, Report } from './report';
 
 export interface ReviewState {
   due: number;
-  interval: number; // Tage
+  interval: number; // days
   ease: number;
   streak: number;
   reviews: number;
@@ -41,7 +41,7 @@ export function review(s: ReviewState, grade: Grade, now: number): ReviewState {
 export interface Card {
   id: string;
   gameId: number;
-  idx: number; // Index des Zuges in der Hauptvariante
+  idx: number; // index of the move in the main line
   fen: string;
   prev?: string;
   playedSan: string;
@@ -56,7 +56,7 @@ export interface Card {
   state: ReviewState;
 }
 
-/** Alle Trainingskarten aus den analysierten eigenen Partien. */
+/** All training cards from the owner's analysed games. */
 export function buildCards(games: GameMeta[], reports: Map<number, Report>, side: (g: GameMeta) => 'w' | 'b' | null): Card[] {
   const cards: Card[] = [];
   const seen = new Set<string>();
@@ -73,7 +73,7 @@ export function buildCards(games: GameMeta[], reports: Map<number, Report>, side
       const st = g.train?.[i] ?? newState();
       if (st.removed) return;
       const key = m.fen.split(' ').slice(0, 4).join(' ') + m.san;
-      if (seen.has(key)) return; // dieselbe Stellung mit demselben Fehler nur einmal
+      if (seen.has(key)) return; // the same position with the same mistake only once
       seen.add(key);
       cards.push({
         id: `${g.id}:${i}`, gameId: g.id!, idx: i, fen: m.fen, prev: m.prev, playedSan: m.san, bestUci: ev.best, bestSan: ev.bestSan,
@@ -86,7 +86,7 @@ export function buildCards(games: GameMeta[], reports: Map<number, Report>, side
 
 export interface Queue { due: Card[]; fresh: Card[]; queue: Card[]; learned: number; total: number }
 
-/** Erst fällige Wiederholungen, dann neue Karten bis zum Tageslimit (Patzer und jüngere Partien zuerst). */
+/** Due reviews first, then new cards up to the daily limit (blunders and more recent games first). */
 export function buildQueue(cards: Card[], now: number): Queue {
   const today = startOfDayAfter(now, 0);
   const due = cards.filter(c => c.state.reviews > 0 && c.state.due <= now).sort((a, b) => a.state.due - b.state.due);
