@@ -19,6 +19,12 @@ Existing users have data under these names; changing them would orphan it:
 - IndexedDB database `caissa`, localStorage keys `caissa.settings` / `caissa.sync` / `caissa.lastUser`
 - sync branch `caissa-data`, backup file marker `app: 'caissa'`
 
+## Data model notes
+
+- Each colour's opening repertoire is one record in the games table with the flag `rep: 'w' | 'b'` (fixed uids
+  `repertoire-w` / `repertoire-b`). It is kept out of `state.games` (see `state.reps`) but syncs like a game.
+- Changes to a stored game autosave (debounced in `bump()`, flushed when leaving); a new, never-saved game does not.
+
 ## Layout and checks
 
 - `src/lib/` – logic (PGN, game tree, engine, report, training, sync, store); `src/components/` – views.

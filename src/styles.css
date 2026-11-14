@@ -342,3 +342,14 @@ label.btn { display: inline-block; }
   .tour-game > :nth-child(n + 6) { display: none; }
   .nav-item { padding-left: calc(4 * var(--u)); padding-right: calc(4 * var(--u)); }
 }
+
+/* ---------- Repertoire ---------- */
+.repertoire { max-width: calc(1400 * var(--u)); }
+.repertoire .grid2 { align-items: start; }
+.col { display: flex; flex-direction: column; gap: calc(12 * var(--u)); min-width: 0; }
+.rep-tree .movelist { max-height: calc(100vh - calc(330 * var(--u))); }
+.rep-line { display: grid; grid-template-columns: minmax(0, 1fr) calc(44 * var(--u)) auto; gap: calc(10 * var(--u)); align-items: center; padding: calc(5 * var(--u)) calc(12 * var(--u)); border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.rep-line b { font-weight: 600; }
+.rep-head { display: flex; align-items: center; gap: calc(8 * var(--u)); padding-bottom: calc(8 * var(--u)); }
+.rep-head > span { flex: 1; }
+.rep-head select { padding: calc(2 * var(--u)) calc(6 * var(--u)); font-size: calc(13 * var(--u)); }

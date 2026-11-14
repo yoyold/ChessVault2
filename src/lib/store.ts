@@ -7,7 +7,7 @@ import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
 
-export type View = 'home' | 'db' | 'analysis' | 'training' | 'tournaments' | 'stats' | 'settings';
+export type View = 'home' | 'db' | 'analysis' | 'repertoire' | 'training' | 'tournaments' | 'stats' | 'settings';
 
 export interface Settings {
   theme: 'dark' | 'light';
@@ -40,6 +40,7 @@ export interface Session {
   report: Report | null;
   dirty: boolean;
   orientation: 'white' | 'black';
+  rep?: 'w' | 'b'; // editing the repertoire of that colour
 }
 
 export interface SyncStatus { state: 'off' | 'idle' | 'busy' | 'error'; msg: string; last: number }
@@ -47,6 +48,7 @@ export interface SyncStatus { state: 'off' | 'idle' | 'busy' | 'error'; msg: str
 interface State {
   view: View;
   games: GameMeta[];
+  reps: GameMeta[]; // repertoire records (kept out of the game list)
   loaded: boolean;
   settings: Settings;
   filter: Filter;
@@ -69,13 +71,28 @@ function freshSession(): Session {
 }
 
 export const state: State = {
-  view: 'home', games: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
+  view: 'home', games: [], reps: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
   session: freshSession(), sync: { state: getSyncConfig() ? 'idle' : 'off', msg: '', last: 0 }, toast: null, bg: null,
 };
 
 let version = 0;
 const subs = new Set<() => void>();
-export function bump() { version++; subs.forEach(f => f()); }
+export function bump() {
+  version++; subs.forEach(f => f());
+  // Autosave: every change to a game that already lives in the database is written shortly afterwards.
+  if (state.session.dirty && state.session.gameId != null) {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => { flushSession(); }, 2500);
+  }
+}
+let autoTimer: any;
+
+/** Writes pending changes of a stored game now (used by the autosave timer and when leaving the game). */
+export async function flushSession() {
+  clearTimeout(autoTimer);
+  const s = state.session;
+  if (s.dirty && s.gameId != null && s.game.root.children.length) await saveSession(true);
+}
 export function useStore(): State {
   useSyncExternalStore(cb => { subs.add(cb); return () => subs.delete(cb); }, () => version);
   return state;
@@ -89,7 +106,7 @@ export function toast(msg: string, kind: 'ok' | 'err' = 'ok') {
   bump();
 }
 
-export function setView(v: View) { state.view = v; bump(); }
+export function setView(v: View) { if (state.view === 'analysis' && v !== 'analysis') flushSession(); state.view = v; bump(); }
 export function setSettings(p: Partial<Settings>) {
   state.settings = { ...state.settings, ...p };
   localStorage.setItem('caissa.settings', JSON.stringify(state.settings));
@@ -100,43 +117,50 @@ export function setFilter(p: Partial<Filter>) { state.filter = { ...state.filter
 
 export async function loadGames() {
   const all = await db.games.toArray();
-  state.games = all.filter(g => !g.deleted);
+  state.games = all.filter(g => !g.deleted && !g.rep);
+  state.reps = all.filter(g => !g.deleted && g.rep);
   state.loaded = true;
   bump();
 }
 
 export function reportMatches(report: Report | null | undefined, game: Game): Report | null {
   if (!report) return null;
+  // The report stays valid as long as the analysed moves are still the start of the main line
+  // (moves appended at the end do not invalidate it).
   const line = mainline(game.root);
-  if (line.length !== report.sans.length) return null;
-  for (let i = 0; i < line.length; i++) if (stripSan(line[i].san) !== report.sans[i]) return null;
+  if (line.length < report.sans.length) return null;
+  for (let i = 0; i < report.sans.length; i++) if (stripSan(line[i].san) !== report.sans[i]) return null;
   return report;
 }
 
-function discardOk(): boolean {
+/** Before the session is replaced: stored games are saved automatically, a new unsaved game asks. */
+async function leaveOk(): Promise<boolean> {
   const s = state.session;
-  return !(s.dirty && s.game.root.children.length) || confirm('Ungespeicherte Änderungen an der aktuellen Partie verwerfen?');
+  if (s.gameId != null) { await flushSession(); return true; }
+  return !(s.dirty && s.game.root.children.length) || confirm('Die neue Partie ist noch nicht gespeichert. Änderungen verwerfen?');
 }
 
-export async function openGame(id: number, ply?: number) {
-  if (state.session.gameId !== id && !discardOk()) return;
+export async function openGame(id: number, ply?: number, path?: string[]) {
+  if (state.session.gameId !== id && !(await leaveOk())) return;
+  if (state.session.gameId === id) await flushSession();
   const row = await db.pgns.get(id);
   if (!row) { toast('Partie nicht gefunden.', 'err'); return; }
   const game = parseGame(row.pgn);
   const rep = (await db.reports.get(id)) ?? null;
-  const meta = state.games.find(g => g.id === id);
+  const meta = state.games.find(g => g.id === id) ?? state.reps.find(g => g.id === id);
   let cur = game.root;
   if (ply) { const line = mainline(game.root); cur = line[Math.min(ply, line.length) - 1] ?? game.root; }
+  if (path) for (const san of path) { const n = cur.children.find(c => stripSan(c.san) === san); if (!n) break; cur = n; }
   state.session = {
-    gameId: id, game, cur, report: reportMatches(rep, game), dirty: false,
-    orientation: meta && mySide(meta) === 'b' ? 'black' : 'white',
+    gameId: id, game, cur, report: reportMatches(rep, game), dirty: false, rep: meta?.rep,
+    orientation: meta?.rep ? (meta.rep === 'b' ? 'black' : 'white') : meta && mySide(meta) === 'b' ? 'black' : 'white',
   };
   state.view = 'analysis';
   bump();
 }
 
-export function openNewGame(fen?: string) {
-  if (!discardOk()) return;
+export async function openNewGame(fen?: string) {
+  if (!(await leaveOk())) return;
   const s = freshSession();
   if (fen) { s.game = newGame(fen); s.cur = s.game.root; }
   state.session = s;
@@ -144,7 +168,8 @@ export function openNewGame(fen?: string) {
   bump();
 }
 
-export function openPgn(pgn: string) {
+export async function openPgn(pgn: string) {
+  if (!(await leaveOk())) return;
   const game = parseGame(pgn);
   state.session = { gameId: null, game, cur: game.root, report: null, dirty: true, orientation: 'white' };
   state.view = 'analysis';
@@ -152,10 +177,13 @@ export function openPgn(pgn: string) {
 }
 
 /** Saves the current game (new or as an update) including variations, comments and report. */
-export async function saveSession() {
+export async function saveSession(silent = false) {
   const s = state.session;
-  if (!s.game.root.children.length) { toast('Die Partie enthält noch keine Züge.', 'err'); return; }
+  clearTimeout(autoTimer);
+  if (!s.game.root.children.length && !s.rep) { if (!silent) toast('Die Partie enthält noch keine Züge.', 'err'); return; }
   const pgn = serializeGame(s.game);
+  s.dirty = false; // edits made while the write is in flight set it again and trigger the next autosave
+  try {
   const meta = metaFromPgn(pgn, 'Eingabe');
   const rep = reportMatches(s.report, s.game);
   if (s.gameId == null) {
@@ -164,12 +192,12 @@ export async function saveSession() {
     s.gameId = row!.id!;
     if (rep) await updateGame(s.gameId, reportPatch(rep, s.game.root.fen.split(' ')[1] === 'w'), undefined, rep);
   } else {
-    const { hash: _h, uid: _u, shard: _s, added: _a, fav: _f, tags: _t, source: _src, ...rest } = meta;
+    const { hash: _h, uid: _u, shard: _s, added: _a, fav: _f, tags: _t, source: _src, updated: _up, dirty: _d, ...rest } = meta;
     await updateGame(s.gameId, { ...rest, ...(rep ? reportPatch(rep, s.game.root.fen.split(' ')[1] === 'w') : { accW: undefined, accB: undefined, errW: undefined, errB: undefined }) }, pgn, rep ?? null);
   }
-  s.dirty = false;
+  } catch (e: any) { s.dirty = true; toast('Speichern fehlgeschlagen: ' + e.message, 'err'); return; }
   await loadGames();
-  toast('Partie gespeichert.');
+  if (!silent) toast(s.rep ? 'Repertoire gespeichert.' : 'Partie gespeichert.');
 }
 
 function reportPatch(report: Report, startsWhite = true) {
@@ -259,6 +287,7 @@ export async function initApp() {
   await loadGames();
   if (!state.games.length) { state.view = 'db'; bump(); }
   onLocalChange(() => scheduleSync());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSession(); });
   if (getSyncConfig()) {
     state.sync.last = await kvGet('lastSync', 0);
     runSync(true);

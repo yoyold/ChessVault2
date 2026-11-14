@@ -30,7 +30,7 @@ export function DatabaseView() {
   const { games, filter, loaded, settings } = useStore();
   const ROW = Math.round(36 * (window.innerWidth <= 900 ? Math.min(settings.scale, 1.1) : settings.scale));
   const names = useMemo(() => myNames(), [settings.me]);
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'added', dir: -1 });
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'date', dir: -1 });
   const [showFilter, setShowFilter] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -47,7 +47,8 @@ export function DatabaseView() {
       key === 'acc' ? (g.accW ?? -1) : key === 'date' ? g.date.replace(/\?/g, '0') : key === 'added' ? (g.id ?? 0) : (g[key] as any);
     out.sort((a, b) => {
       const x = val(a), y = val(b);
-      return (typeof x === 'number' ? x - (y as number) : String(x).localeCompare(String(y), 'de')) * dir;
+      const c = (typeof x === 'number' ? x - (y as number) : String(x).localeCompare(String(y), 'de')) * dir;
+      return c || (b.id ?? 0) - (a.id ?? 0); // ties: most recently added first
     });
     return out;
   }, [games, filter, sort]);

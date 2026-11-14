@@ -10,10 +10,12 @@ The user interface is in German.
 - **Overview**: recent games, current form, rating, today's training.
 - **Database**: import from PGN files (large collections too), by pasting, or straight from **Lichess** and **Chess.com**. Duplicates are detected.
 - **Search and filters**: full-text search, White/Black (optionally ignoring colours), result, year, rating, ECO range, opening name, move sequence, number of moves, time control, tags, favourites, "with report only". Results are coloured from your own point of view.
-- **Analysis board**: live Stockfish analysis (1–5 lines), evaluation bar, entering/promoting/deleting variations, editing game details, pasting and copying PGN/FEN.
+- **Analysis board**: live Stockfish analysis (1–5 lines), evaluation bar, entering/promoting/deleting variations, editing game details, pasting and copying PGN/FEN. Changes to a stored game are saved automatically.
 - **Annotating**: move, position and motif symbols, text before and after a move, coloured arrows and squares (stored as `%cal`/`%csl`).
 - **Game report**: every move is classified (great move … blunder), accuracy per side, evaluation graph with hover and click-to-jump, key moments with the better move.
 - **Background analysis**: reports for many games while you keep working.
+- **Repertoire**: one opening repertoire per colour, built from suggestions out of your own games, on the board, or by adding the current line; shows gaps (opponent moves you have no answer to).
+- **Opening trainer**: quizzes your repertoire moves on the same spaced-repetition schedule.
 - **Training**: your own mistakes and blunders as exercises, on a spaced-repetition schedule (SM-2: 1, 3, then growing days; failed ones after ten minutes).
 - **Tournaments**: your tournaments taken from the database with score, average opponent rating and performance; expandable down to the single game.
 - **Opening tree**: statistics from your own database for any move sequence, including matching games.

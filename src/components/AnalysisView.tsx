@@ -13,6 +13,7 @@ import { engine, formatScore, Job, PV, winPct } from '../lib/engine';
 import { analyzeGame, CLASS_INFO, CLASS_ORDER, countClasses, MoveClass } from '../lib/report';
 import { NAG_GROUPS, NAG_SYMBOL, serializeGame } from '../lib/pgn';
 import { resultLabel } from '../lib/filter';
+import { addLines, sideName } from '../lib/repertoire';
 import { validateFen } from 'chess.js';
 
 type Tab = 'moves' | 'report' | 'explorer';
@@ -52,6 +53,11 @@ export function AnalysisView() {
     c.nags = had ? rest : [...rest, nag].sort((a, b) => a - b);
     if (!c.nags.length) c.nags = undefined;
     state.session.dirty = true; bump();
+  };
+  const toRep = async (side: 'w' | 'b') => {
+    const sans = pathTo(state.session.cur).map(n => stripSan(n.san));
+    const n = await addLines(side, [sans]);
+    toast(n ? `${n} ${n === 1 ? 'Zug' : 'Züge'} ins ${sideName(side)}-Repertoire übernommen.` : 'Diese Variante steht schon im Repertoire.');
   };
   const walk = (n: Node, f: (x: Node) => void) => { f(n); n.children.forEach(ch => walk(ch, f)); };
   const stripAll = (what: 'comments' | 'variations') => {
@@ -241,9 +247,10 @@ export function AnalysisView() {
       <div className="side-col">
         <div className="card game-head">
           <div className="gh-main">
-            <div className="gh-title ellip">{name('White')} – {name('Black')} <span className="muted">{resultLabel(h.Result || '*')}</span></div>
+            <div className="gh-title ellip">{s.rep ? `Repertoire ${sideName(s.rep)}` : <>{name('White')} – {name('Black')} <span className="muted">{resultLabel(h.Result || '*')}</span></>}</div>
             <div className="muted ellip">
-              {[h.Event !== '?' && h.Event, h.Date && !h.Date.startsWith('?') && h.Date, h.ECO, s.dirty && 'ungespeichert'].filter(Boolean).join(' · ') || 'Neue Partie'}
+              {s.rep ? (s.dirty ? 'wird gespeichert …' : 'Züge am Brett eingeben – wird automatisch gespeichert')
+                : [h.Event !== '?' && h.Event, h.Date && !h.Date.startsWith('?') && h.Date, h.ECO, s.dirty && (s.gameId != null ? 'wird gespeichert …' : 'ungespeichert')].filter(Boolean).join(' · ') || 'Neue Partie'}
             </div>
           </div>
           <button className="btn primary" onClick={() => saveSession()} disabled={!s.dirty && s.gameId != null}>Speichern</button>
@@ -251,6 +258,8 @@ export function AnalysisView() {
             <summary className="btn">⋯</summary>
             <div className="menu-pop" onClick={e => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
               <button onClick={() => setEditHeaders(true)}>Partiedaten bearbeiten</button>
+              {!s.rep && standard && cur !== root && <button onClick={() => toRep('w')}>Variante ins Weiß-Repertoire</button>}
+              {!s.rep && standard && cur !== root && <button onClick={() => toRep('b')}>Variante ins Schwarz-Repertoire</button>}
               <button onClick={() => stripAll('comments')}>Alle Kommentare entfernen</button>
               <button onClick={() => stripAll('variations')}>Alle Varianten entfernen</button>
               <button onClick={() => openNewGame()}>Neue Partie / leeres Brett</button>

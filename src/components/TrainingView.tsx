@@ -7,7 +7,9 @@ import { db, patchGames } from '../lib/db';
 import { engine, formatScore, Job, winPct } from '../lib/engine';
 import type { Report } from '../lib/report';
 import { buildCards, buildQueue, Card, Grade, NEW_PER_DAY, review } from '../lib/training';
-import { mySide, openGame, setView, startBackground, useStore } from '../lib/store';
+import { loadGames, mySide, openGame, setView, startBackground, useStore } from '../lib/store';
+import { OpeningSession, useRepertoire } from './RepertoireView';
+import type { OpeningCard } from '../lib/repertoire';
 
 /** Loads all reports and builds the training cards from them. */
 export function useCards(): { cards: Card[] | null; reload: () => void } {
@@ -35,7 +37,17 @@ export function TrainingView() {
   const { cards } = useCards();
   const [session, setSession] = useState<Card[] | null>(null);
 
+  const repW = useRepertoire('w'), repB = useRepertoire('b');
+  const [opening, setOpening] = useState<{ id: number; cards: OpeningCard[] } | null>(null);
+  if (opening) return <OpeningSession repId={opening.id} cards={opening.cards} onDone={async () => { await loadGames(); setOpening(null); }} />;
   if (session) return <Session cards={session} onDone={() => setSession(null)} />;
+  const openingDeck = (label: string, r: ReturnType<typeof useRepertoire>) => (
+    <div className="kpi">
+      <small>{label}</small><b>{r.queue.queue.length}</b>
+      <span className="muted small">{r.queue.due.length} Wiederholungen, {r.queue.queue.length - r.queue.due.length} neu · {r.queue.learned}/{r.queue.total} gelernt</span>
+      <span><button className="btn small" disabled={!r.queue.queue.length || !r.meta} onClick={() => setOpening({ id: r.meta!.id!, cards: r.queue.queue })}>Starten</button></span>
+    </div>
+  );
 
   const names = settings.me.trim();
   const mine = games.filter(g => mySide(g));
@@ -44,6 +56,13 @@ export function TrainingView() {
   return (
     <div className="view training">
       <div className="toolbar"><h1>Training</h1></div>
+      <h3>Eröffnungen</h3>
+      {repW.queue.total + repB.queue.total > 0 ? (
+        <div className="kpis">{openingDeck('Repertoire Weiß', repW)}{openingDeck('Repertoire Schwarz', repB)}</div>
+      ) : (
+        <p className="muted">Noch kein Repertoire angelegt. <span className="link" onClick={() => setView('repertoire')}>Zum Repertoire</span></p>
+      )}
+      <h3 style={{ marginTop: 'calc(8 * var(--u))' }}>Eigene Fehler</h3>
       {!names ? (
         <div className="welcome">
           <p>Das Training nimmt die Stellungen, in denen du selbst einen Fehler oder Patzer gespielt hast, und lässt dich den besseren Zug finden.

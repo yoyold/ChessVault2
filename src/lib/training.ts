@@ -84,15 +84,19 @@ export function buildCards(games: GameMeta[], reports: Map<number, Report>, side
   return cards;
 }
 
-export interface Queue { due: Card[]; fresh: Card[]; queue: Card[]; learned: number; total: number }
+export interface Queue<T = Card> { due: T[]; fresh: T[]; queue: T[]; learned: number; total: number }
 
-/** Due reviews first, then new cards up to the daily limit (blunders and more recent games first). */
-export function buildQueue(cards: Card[], now: number): Queue {
+/** Due reviews first, then new cards (in the given order) up to the daily limit. */
+export function queueOf<T extends { state: ReviewState }>(cards: T[], now: number, newOrder: (a: T, b: T) => number): Queue<T> {
   const today = startOfDayAfter(now, 0);
   const due = cards.filter(c => c.state.reviews > 0 && c.state.due <= now).sort((a, b) => a.state.due - b.state.due);
   const introduced = cards.filter(c => c.state.first !== null && c.state.first >= today).length;
-  const fresh = cards.filter(c => c.state.reviews === 0)
-    .sort((a, b) => (a.cls !== b.cls ? (a.cls === 'blunder' ? -1 : 1) : b.date.localeCompare(a.date)));
+  const fresh = cards.filter(c => c.state.reviews === 0).sort(newOrder);
   const allowance = Math.max(0, NEW_PER_DAY - introduced);
   return { due, fresh, queue: [...due, ...fresh.slice(0, allowance)], learned: cards.filter(c => c.state.streak >= 2).length, total: cards.length };
+}
+
+/** Mistake cards: blunders before mistakes, more recent games first. */
+export function buildQueue(cards: Card[], now: number): Queue {
+  return queueOf(cards, now, (a, b) => (a.cls !== b.cls ? (a.cls === 'blunder' ? -1 : 1) : b.date.localeCompare(a.date)));
 }

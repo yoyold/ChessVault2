@@ -34,6 +34,7 @@ export interface GameMeta {
   updated: number; // last change (ms) – last write wins
   dirty: 0 | 1; // changed locally, not uploaded yet
   deleted?: boolean; // tombstone
+  rep?: 'w' | 'b'; // this record is the owner's opening repertoire for that colour, not a game
 }
 
 export const SHARDS = 64;

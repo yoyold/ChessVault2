@@ -4,6 +4,7 @@ import { StatsView } from './components/StatsView';
 import { SettingsView } from './components/SettingsView';
 import { HomeView } from './components/HomeView';
 import { TrainingView } from './components/TrainingView';
+import { RepertoireView } from './components/RepertoireView';
 import { TournamentsView } from './components/TournamentsView';
 import { Icon } from './components/ui';
 import { runSync, setView, stopBackground, useStore, View } from './lib/store';
@@ -11,9 +12,10 @@ import { runSync, setView, stopBackground, useStore, View } from './lib/store';
 const NAV: { id: View; icon: string; label: string }[] = [
   { id: 'home', icon: 'home', label: 'Übersicht' },
   { id: 'db', icon: 'db', label: 'Datenbank' },
-  { id: 'analysis', icon: 'board', label: 'Analyse' },
-  { id: 'training', icon: 'target', label: 'Training' },
   { id: 'tournaments', icon: 'trophy', label: 'Turniere' },
+  { id: 'analysis', icon: 'board', label: 'Analyse' },
+  { id: 'repertoire', icon: 'tree', label: 'Repertoire' },
+  { id: 'training', icon: 'target', label: 'Training' },
   { id: 'stats', icon: 'chart', label: 'Statistik' },
   { id: 'settings', icon: 'settings', label: 'Einstellungen' },
 ];
@@ -49,6 +51,7 @@ export function App() {
       <main className="main">
         {view === 'home' && <HomeView />}
         {view === 'db' && <DatabaseView />}
+        {view === 'repertoire' && <RepertoireView />}
         {view === 'training' && <TrainingView />}
         {view === 'analysis' && <AnalysisView />}
         {view === 'tournaments' && <TournamentsView />}

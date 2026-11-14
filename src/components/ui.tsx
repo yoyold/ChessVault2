@@ -4,6 +4,7 @@ const ICONS: Record<string, string> = {
   db: 'M4 5c0-1.1 2.7-2 6-2s6 .9 6 2v10c0 1.1-2.7 2-6 2s-6-.9-6-2V5zM4 5c0 1.1 2.7 2 6 2s6-.9 6-2M4 10c0 1.1 2.7 2 6 2s6-.9 6-2',
   board: 'M3 3h14v14H3zM10 3v14M3 10h14',
   trophy: 'M6.5 3h7v4a3.5 3.5 0 0 1-7 0zM6.5 4.5H4V6a2.5 2.5 0 0 0 2.6 2.5M13.5 4.5H16V6a2.5 2.5 0 0 1-2.6 2.5M10 10.5V14M7 17h6M8 14h4v3H8z',
+  tree: 'M5 3v14M5 7h5a3 3 0 0 1 3 3v0M5 13h9M13 10h3M14 13h2',
   chart: 'M3 17h14M5 13.5l3.5-4 3 2.5L16 6',
   settings: 'M3 6h7m5 0h2M3 14h2m5 0h7M12.5 4v4M7.5 12v4',
   home: 'M3 9.5L10 4l7 5.5V17h-4.5v-4.5h-5V17H3z',
