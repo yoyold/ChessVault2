@@ -7,7 +7,7 @@ import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
 
-export type View = 'home' | 'db' | 'analysis' | 'training' | 'stats' | 'settings';
+export type View = 'home' | 'db' | 'analysis' | 'training' | 'tournaments' | 'stats' | 'settings';
 
 export interface Settings {
   theme: 'dark' | 'light';

@@ -12,6 +12,7 @@ und die eigenen Fehler gezielt trainieren. Läuft als rein statische Web-App –
 - **Partie-Report**: jeder Zug wird bewertet (Starker Zug … Patzer), Genauigkeit je Seite, Bewertungsgraph, Schlüsselmomente mit besserem Zug.
 - **Hintergrundanalyse**: Reports für viele Partien, während man normal weiterarbeitet.
 - **Training**: die eigenen Fehler und Patzer als Aufgaben, mit Wiederholungsplan (SM-2: 1, 3, dann wachsende Tage; falsch gelöste nach zehn Minuten).
+- **Turniere**: eigene Turniere aus der Datenbank mit Punkten, Gegnerschnitt und Turnierleistung; aufklappbar bis zur einzelnen Partie.
 - **Eröffnungsbaum**: Statistik aus der eigenen Datenbank zu jeder Zugfolge, inklusive passender Partien.
 - **Statistik**: Score nach Farbe, Eröffnung (mit Genauigkeit), Gegnerstärke, Jahr, Turnier, Gegner, Bedenkzeit; Elo-Verlauf; Fehler pro Partie; Zeitraumfilter; mehrere eigene Spielernamen.
 - **Geräte-Sync** über ein privates GitHub-Repository und **vollständige Sicherung** als Datei.
