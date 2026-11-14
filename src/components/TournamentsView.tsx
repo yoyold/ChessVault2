@@ -11,6 +11,8 @@ interface Tournament {
 }
 
 const ONLINE = /^(rated|casual|live|let'?s|hourly|daily|weekly|monthly|yearly|.*\b(arena|bullet|blitz|rapid|classical|correspondence) game\b)/i;
+const GAP_DAYS = 240; // a pause this long always starts a new edition
+const YEAR_GAP_DAYS = 100; // … a shorter one only if the calendar year changed in between
 const dateKey = (d: string) => d.replace(/\?/g, '0');
 const fmtDate = (d: string) => {
   const [y, m, day] = d.split('.');
@@ -27,18 +29,38 @@ function performance(points: number, games: number, avgOpp: number): number {
 }
 
 function build(games: GameMeta[], names: string[], online: boolean): Tournament[] {
-  const map = new Map<string, Row[]>();
+  const byName = new Map<string, Row[]>();
   for (const g of games) {
     const side = mySide(g, names);
     if (!side || !g.event) continue;
     if (!online && (ONLINE.test(g.event) || /lichess\.org|chess\.com/i.test(g.site))) continue;
     const white = side === 'w';
     const pts = g.result === '*' ? null : g.result === '1/2-1/2' ? 0.5 : (g.result === '1-0') === white ? 1 : 0;
-    // same event name in different years = different tournaments
-    const key = g.event.trim().toLowerCase() + '|' + (g.year || '');
+    const key = g.event.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
     const row: Row = { g, white, opp: white ? g.black : g.white, oppElo: white ? g.blackElo : g.whiteElo, myElo: white ? g.whiteElo : g.blackElo, pts };
-    const list = map.get(key);
-    if (list) list.push(row); else map.set(key, [row]);
+    const list = byName.get(key);
+    if (list) list.push(row); else byName.set(key, [row]);
+  }
+  // One name can stand for several editions ("Vereinsmeisterschaft"). Editions are told apart by time:
+  // a long pause between consecutive games starts a new one (see GAP_DAYS / YEAR_GAP_DAYS). This keeps a
+  // season that runs across New Year together but separates a yearly event played February to September.
+  // Games without a date join the most recent edition.
+  const map = new Map<string, Row[]>();
+  const time = (r: Row) => Date.parse(r.g.date.replace(/\?\?/g, '01').replace(/\./g, '-'));
+  for (const [name, rows] of byName) {
+    const dated = rows.filter(r => !isNaN(time(r))).sort((a, b) => time(a) - time(b));
+    const undated = rows.filter(r => isNaN(time(r)));
+    let n = 0, prev = NaN;
+    for (const r of dated) {
+      const gap = (time(r) - prev) / 86400000;
+      const newYear = !isNaN(prev) && new Date(prev).getFullYear() !== new Date(time(r)).getFullYear();
+      if (gap > GAP_DAYS || (newYear && gap > YEAR_GAP_DAYS)) n++;
+      prev = time(r);
+      const k = `${name}|${n}`;
+      const l = map.get(k);
+      if (l) l.push(r); else map.set(k, [r]);
+    }
+    if (undated.length) { const k = `${name}|${n}`; map.set(k, [...(map.get(k) ?? []), ...undated]); }
   }
   const out: Tournament[] = [];
   for (const [key, rows] of map) {

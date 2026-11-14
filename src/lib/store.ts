@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { db, GameMeta, onLocalChange, updateGame, addGames, kvGet } from './db';
+import { db, GameMeta, onLocalChange, updateGame, addGames, kvGet, patchGames } from './db';
 import { Game, Node, newGame, mainline, stripSan } from './tree';
 import { parseGame, serializeGame } from './pgn';
-import { metaFromPgn } from './meta';
+import { metaFromPgn, normalizeDate } from './meta';
 import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
@@ -117,6 +117,12 @@ export function setFilter(p: Partial<Filter>) { state.filter = { ...state.filter
 
 export async function loadGames() {
   const all = await db.games.toArray();
+  // Repair dates stored before non-standard formats (e.g. DD.MM.YYYY) were normalised.
+  const fix = all.filter(g => !g.deleted && g.date !== normalizeDate(g.date));
+  if (fix.length) {
+    for (const g of fix) { g.date = normalizeDate(g.date); g.year = parseInt(g.date.slice(0, 4), 10) || 0; }
+    await patchGames(fix.map(g => g.id!), g => { const date = normalizeDate(g.date); return { date, year: parseInt(date.slice(0, 4), 10) || 0 }; });
+  }
   state.games = all.filter(g => !g.deleted && !g.rep);
   state.reps = all.filter(g => !g.deleted && g.rep);
   state.loaded = true;

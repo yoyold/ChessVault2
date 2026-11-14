@@ -34,12 +34,30 @@ export function timeClass(tc: string | undefined, event = ''): string {
   return 'Klassisch';
 }
 
+/**
+ * Brings a PGN date into the standard form YYYY.MM.DD. Files written by hand or by other tools often use
+ * DD.MM.YYYY (or dashes/slashes); unparsed, those sort wrongly and yield a bogus year.
+ */
+export function normalizeDate(raw: string | undefined): string {
+  const s = (raw ?? '').trim();
+  const pad = (x: string) => (x.includes('?') ? '??' : x.padStart(2, '0'));
+  let m = s.match(/^(\d{4})[.\-/](\d{1,2}|\?{1,2})[.\-/](\d{1,2}|\?{1,2})$/);
+  if (m) return `${m[1]}.${pad(m[2])}.${pad(m[3])}`;
+  m = s.match(/^(\d{1,2}|\?{1,2})[.\-/](\d{1,2}|\?{1,2})[.\-/](\d{4})$/); // day first
+  if (m) return `${m[3]}.${pad(m[2])}.${pad(m[1])}`;
+  m = s.match(/^(\d{1,2})[.\-/](\d{4})$/); // MM.YYYY
+  if (m) return `${m[2]}.${pad(m[1])}.??`;
+  m = s.match(/^(\d{4})(?:[.\-/](\d{1,2}))?$/);
+  if (m) return `${m[1]}.${m[2] ? pad(m[2]) : '??'}.??`;
+  return /^\d{4}\./.test(s) ? s : '????.??.??';
+}
+
 export function metaFromPgn(pgn: string, source: string): GameMeta {
   const h = parseHeaders(pgn);
   const sans = h.FEN ? [] : quickMainline(movetextOf(pgn));
   const sansAll = h.FEN ? quickMainline(movetextOf(pgn)) : sans;
   const op = sans.length ? findOpening(sans) : null;
-  const date = (h.Date || h.UTCDate || '????.??.??').replace(/-/g, '.');
+  const date = normalizeDate(h.Date || h.UTCDate);
   const year = parseInt(date.slice(0, 4), 10) || 0;
   const moves = sans.join(' ');
   const white = (h.White || '?').trim();
