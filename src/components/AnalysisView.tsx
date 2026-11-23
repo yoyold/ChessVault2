@@ -16,10 +16,12 @@ import { resultLabel } from '../lib/filter';
 import { addLines, sideName } from '../lib/repertoire';
 import { noteFor } from '../lib/notes';
 import { PositionNote } from './NotesView';
+import { TimeUsage } from './TimeUsage';
+import { TIME_NOTE_HEADER, fmtClock, hasTimes, moveTimes, parseTimeControl } from '../lib/clock';
 import { emptyFilter, setFilter, setView } from '../lib/store';
 import { validateFen } from 'chess.js';
 
-type Tab = 'moves' | 'report' | 'explorer' | 'note';
+type Tab = 'moves' | 'report' | 'explorer' | 'time' | 'note';
 
 function pvSan(fen: string, pv: string[], max = 12): { text: string; first?: string } {
   const c = new Chess(fen);
@@ -195,11 +197,19 @@ export function AnalysisView() {
     go(line[next]);
   };
 
+  // remaining clock of each side at the current main-line position
+  const times = hasTimes(line) ? moveTimes(line, parseTimeControl(h.TimeControl)) : [];
+  const clockAt = (side: 'White' | 'Black') => {
+    if (!times.length || posIdx < 0) return undefined;
+    for (let i = posIdx - 1; i >= 0; i--) if (times[i].white === (side === 'White')) return times[i].clock;
+    return parseTimeControl(h.TimeControl)[0]?.base;
+  };
   const playerBar = (side: 'White' | 'Black') => (
     <div className="player-bar">
       <span className={'dot ' + (side === 'White' ? 'w' : 'b')} />
       <strong className="ellip">{name(side)}</strong><span className="muted">{elo(side)}</span>
       {report && <span className="acc-chip" title="Genauigkeit">{(side === 'White' ? report.accW : report.accB).toFixed(1)} %</span>}
+      {clockAt(side) != null && <span className="clock-chip" title="Restzeit">{fmtClock(clockAt(side)!)}</span>}
     </div>
   );
 
@@ -304,6 +314,7 @@ export function AnalysisView() {
             <button className={tab === 'moves' ? 'on' : ''} onClick={() => setTab('moves')}>Notation</button>
             <button className={tab === 'report' ? 'on' : ''} onClick={() => setTab('report')}>Report</button>
             <button className={tab === 'explorer' ? 'on' : ''} onClick={() => setTab('explorer')}>Eröffnungsbaum</button>
+            <button className={tab === 'time' ? 'on' : ''} onClick={() => setTab('time')}>Zeit{hasTimes(line) || h[TIME_NOTE_HEADER] ? ' •' : ''}</button>
             <button className={tab === 'note' ? 'on' : ''} onClick={() => setTab('note')}>Notiz{noteFor(cur.fen) ? ' •' : ''}</button>
           </div>
 
@@ -402,6 +413,7 @@ export function AnalysisView() {
           )}
 
           {tab === 'explorer' && <Explorer fen={cur.fen} sans={sans} standard={standard} onPlay={san => play(san)} />}
+          {tab === 'time' && <TimeUsage key={root.id} line={line} cur={cur} onSelect={go} />}
           {tab === 'note' && <PositionNote fen={cur.fen} />}
         </div>
       </div>
