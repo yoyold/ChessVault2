@@ -14,6 +14,8 @@ export interface Node {
   pre?: string; // comment before the move (at the start of a variation)
   nags?: number[];
   shapes?: Shape[]; // coloured arrows and squares
+  clk?: number; // remaining clock after the move in seconds ([%clk])
+  emt?: number; // time spent on the move in seconds ([%emt])
 }
 
 export interface Shape { orig: string; dest?: string; brush: string }

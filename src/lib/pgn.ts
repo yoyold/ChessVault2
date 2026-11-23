@@ -1,4 +1,5 @@
 import { Game, Node, Shape, addMove, newRoot, START_FEN } from './tree';
+import { pgnClock } from './clock';
 
 /** Splits a PGN text into individual games. */
 export function splitPgn(text: string): string[] {
@@ -72,17 +73,28 @@ export const NAG_GROUPS: { title: string; items: [number, string][] }[] = [
 const BRUSH_LETTER: Record<string, string> = { green: 'G', red: 'R', blue: 'B', yellow: 'Y' };
 const LETTER_BRUSH: Record<string, string> = { G: 'green', R: 'red', B: 'blue', Y: 'yellow', O: 'yellow', C: 'blue' };
 
-/** Separates graphical annotations ([%cal …] arrows, [%csl …] squares) from the comment text. */
-function splitShapes(c: string): { text: string; shapes: Shape[] } {
+const clockSec = (v: string) => {
+  const m = v.trim().match(/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/);
+  return m ? (m[1] ? +m[1] * 3600 : 0) + +m[2] * 60 + +m[3] : undefined;
+};
+
+/** Separates graphical annotations ([%cal …] arrows, [%csl …] squares) and clock times from the comment text. */
+function splitShapes(c: string): { text: string; shapes: Shape[]; clk?: number; emt?: number } {
   const shapes: Shape[] = [];
-  const text = c.replace(/\[%c(al|sl)\s+([^\]]*)\]/g, (_m, _k, list: string) => {
+  let clk: number | undefined, emt: number | undefined;
+  const text = c.replace(/\[%(clk|emt)\s+([^\]]*)\]/g, (m, k: string, v: string) => {
+    const sec = clockSec(v);
+    if (sec == null) return m;
+    if (k === 'clk') clk = sec; else emt = sec;
+    return '';
+  }).replace(/\[%c(al|sl)\s+([^\]]*)\]/g, (_m, _k, list: string) => {
     for (const t of list.split(',')) {
       const m = t.trim().match(/^([A-Z])([a-h][1-8])([a-h][1-8])?$/);
       if (m) shapes.push({ brush: LETTER_BRUSH[m[1]] ?? 'green', orig: m[2], ...(m[3] ? { dest: m[3] } : {}) });
     }
     return '';
   }).replace(/\s+/g, ' ').trim();
-  return { text, shapes };
+  return { text, shapes, clk, emt };
 }
 
 function shapeTags(shapes?: Shape[]): string {
@@ -110,11 +122,13 @@ export function parseGame(pgn: string): Game {
     if (ch === '{') {
       const end = text.indexOf('}', i);
       const raw = text.slice(i + 1, end < 0 ? n : end).replace(/\s+/g, ' ').trim();
-      const { text: c, shapes } = splitShapes(raw);
+      const { text: c, shapes, clk, emt } = splitShapes(raw);
       if (afterOpen) { if (c) pendingPre = pendingPre ? pendingPre + ' ' + c : c; }
       else {
         if (c) cur.comment = cur.comment ? cur.comment + ' ' + c : c;
         if (shapes.length) cur.shapes = [...(cur.shapes ?? []), ...shapes];
+        if (clk != null) cur.clk = clk;
+        if (emt != null) cur.emt = emt;
       }
       i = end < 0 ? n : end + 1; continue;
     }
@@ -176,7 +190,8 @@ function moveTok(n: Node, force: boolean): string {
 
 function annot(n: Node, out: string[]): boolean {
   for (const g of n.nags ?? []) out.push('$' + g);
-  const c = [n.comment, shapeTags(n.shapes)].filter(Boolean).join(' ');
+  const times = (n.clk != null ? `[%clk ${pgnClock(n.clk)}]` : '') + (n.emt != null ? `[%emt ${pgnClock(n.emt)}]` : '');
+  const c = [n.comment, shapeTags(n.shapes), times].filter(Boolean).join(' ');
   if (c) { out.push(`{${c.replace(/}/g, ')')}}`); return true; }
   return false;
 }
