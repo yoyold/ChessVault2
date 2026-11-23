@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { GameMeta } from '../lib/db';
 import { mySide, openGame, setView, useStore } from '../lib/store';
 import { resultLabel } from '../lib/filter';
+import { PoolSwitch } from './PoolSwitch';
 
 interface Row { g: GameMeta; white: boolean; opp: string; oppElo: number; myElo: number; pts: number | null }
 interface Tournament {
@@ -10,7 +11,6 @@ interface Tournament {
   avgOpp: number | null; myElo: number | null; perf: number | null; rated: number;
 }
 
-const ONLINE = /^(rated|casual|live|let'?s|hourly|daily|weekly|monthly|yearly|.*\b(arena|bullet|blitz|rapid|classical|correspondence) game\b)/i;
 const GAP_DAYS = 240; // a pause this long always starts a new edition
 const YEAR_GAP_DAYS = 100; // … a shorter one only if the calendar year changed in between
 const dateKey = (d: string) => d.replace(/\?/g, '0');
@@ -28,7 +28,7 @@ function performance(points: number, games: number, avgOpp: number): number {
   return Math.round(avgOpp + Math.max(-800, Math.min(800, -400 * Math.log10(1 / p - 1))));
 }
 
-function build(games: GameMeta[], names: string[], online: boolean): Tournament[] {
+function build(games: GameMeta[], names: string[]): Tournament[] {
   const byName = new Map<string, Row[]>();
   for (const g of games) {
     const side = mySide(g, names);
@@ -44,12 +44,6 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
   // a long pause between consecutive games starts a new one (see GAP_DAYS / YEAR_GAP_DAYS). This keeps a
   // season that runs across New Year together but separates a yearly event played February to September.
   // Games without a date join the most recent edition.
-  // Online play is judged per event, not per game: a single over-the-board game whose PGN was exported from
-  // an online analysis board (Site "Chess.com") must not drop out of its tournament.
-  if (!online) for (const [name, rows] of byName) {
-    const onlineSite = rows.filter(r => /lichess\.org|chess\.com/i.test(r.g.site)).length;
-    if (ONLINE.test(rows[0].g.event) || onlineSite > rows.length / 2) byName.delete(name);
-  }
   const map = new Map<string, Row[]>();
   const time = (r: Row) => Date.parse(r.g.date.replace(/\?\?/g, '01').replace(/\./g, '-'));
   for (const [name, rows] of byName) {
@@ -92,12 +86,11 @@ function build(games: GameMeta[], names: string[], online: boolean): Tournament[
 }
 
 export function TournamentsView() {
-  const { games, settings } = useStore();
+  const { games, pool, settings } = useStore();
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [online, setOnline] = useState(false);
   const [q, setQ] = useState('');
   const names = useMemo(() => settings.me.split(';').map(s => s.trim().toLowerCase()).filter(Boolean), [settings.me]);
-  const all = useMemo(() => build(games, names, online), [games, names, online]);
+  const all = useMemo(() => build(games, names), [games, names]);
   const list = useMemo(() => {
     const w = q.trim().toLowerCase();
     return w ? all.filter(t => `${t.name} ${t.site} ${t.last}`.toLowerCase().includes(w)) : all;
@@ -116,7 +109,7 @@ export function TournamentsView() {
         <div className="search" style={{ flex: '0 1 calc(260 * var(--u))' }}>
           <input value={q} placeholder="Turnier suchen" onChange={e => setQ(e.target.value)} />
         </div>
-        <label className="check" style={{ paddingBottom: 0 }}><input type="checkbox" checked={online} onChange={e => setOnline(e.target.checked)} /> Online-Partien einbeziehen</label>
+        <PoolSwitch />
       </div>
 
       {!names.length ? (
@@ -126,7 +119,7 @@ export function TournamentsView() {
         </div>
       ) : !all.length ? (
         <div className="welcome">
-          <p>Keine Turniere gefunden. Turniere werden aus dem Feld „Event“ deiner eigenen Partien gebildet{online ? '' : '; Online-Partien sind ausgeblendet'}.</p>
+          <p>Keine Turniere gefunden. Turniere werden aus dem Feld „Event“ deiner eigenen {pool === 'otb' ? 'OTB' : 'Online'}-Partien gebildet.</p>
         </div>
       ) : (
         <>

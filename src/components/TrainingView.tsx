@@ -10,6 +10,7 @@ import { buildCards, buildQueue, Card, Grade, NEW_PER_DAY, review } from '../lib
 import { loadGames, mySide, openGame, setView, startBackground, useStore } from '../lib/store';
 import { OpeningSession, useRepertoire } from './RepertoireView';
 import type { OpeningCard } from '../lib/repertoire';
+import { PoolSwitch } from './PoolSwitch';
 
 /** Loads all reports and builds the training cards from them. */
 export function useCards(): { cards: Card[] | null; reload: () => void } {
@@ -55,7 +56,7 @@ export function TrainingView() {
   const q = cards ? buildQueue(cards, Date.now()) : null;
   return (
     <div className="view training">
-      <div className="toolbar"><h1>Training</h1></div>
+      <div className="toolbar"><h1>Training</h1><span className="grow" /><PoolSwitch /></div>
       <h3>Eröffnungen</h3>
       {repW.queue.total + repB.queue.total > 0 ? (
         <div className="kpis">{openingDeck('Repertoire Weiß', repW)}{openingDeck('Repertoire Schwarz', repB)}</div>

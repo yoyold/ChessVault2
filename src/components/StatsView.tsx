@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { emptyFilter, myNames, mySide, setFilter, setView, useStore } from '../lib/store';
 import { WdlBar } from './ui';
 import type { GameMeta } from '../lib/db';
+import { PoolSwitch } from './PoolSwitch';
 
 interface Agg { n: number; w: number; d: number; l: number }
 const agg = (): Agg => ({ n: 0, w: 0, d: 0, l: 0 });
@@ -105,6 +106,7 @@ export function StatsView() {
       <div className="toolbar">
         <h1>Statistik</h1>
         <span className="grow" />
+        <PoolSwitch />
         <label className="muted small">Spieler</label>
         <select value={who} onChange={e => setWho(e.target.value)}>
           <option value="">{own.length ? `Ich (${settings.me.split(';').map(x => x.trim()).filter(Boolean).join(', ')})` : `${me} (häufigster Spieler)`}</option>
