@@ -36,6 +36,7 @@ export interface GameMeta {
   deleted?: boolean; // tombstone
   note?: PositionNote; // this record is a note on a position, not a game
   rep?: 'w' | 'b'; // this record is the owner's opening repertoire for that colour, not a game
+  online?: boolean; // played online; undefined on records stored before the split – see isOnline()
 }
 
 export interface PositionNote { key: string; fen: string; text: string; tags: string[] }

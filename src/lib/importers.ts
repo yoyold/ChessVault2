@@ -2,20 +2,20 @@ import { addGames, db, GameMeta } from './db';
 import { metaFromPgn } from './meta';
 import { splitPgn } from './pgn';
 
-export interface ImportResult { added: number; duplicates: number; failed: number }
+export interface ImportResult { added: number; duplicates: number; failed: number; online: number }
 
 export async function importPgnText(text: string, source: string, onProgress?: (done: number, total: number) => void): Promise<ImportResult> {
   const parts = splitPgn(text);
   const known = new Set<string>();
   await db.games.each(g => { if (!g.deleted) known.add(g.hash); });
-  const res: ImportResult = { added: 0, duplicates: 0, failed: 0 };
+  const res: ImportResult = { added: 0, duplicates: 0, failed: 0, online: 0 };
   let batch: { meta: GameMeta; pgn: string }[] = [];
   for (let i = 0; i < parts.length; i++) {
     try {
       const meta = metaFromPgn(parts[i], source);
       if (!meta.plies && meta.white === '?' && meta.black === '?') res.failed++;
       else if (known.has(meta.hash)) res.duplicates++;
-      else { known.add(meta.hash); batch.push({ meta, pgn: parts[i] }); res.added++; }
+      else { known.add(meta.hash); batch.push({ meta, pgn: parts[i] }); res.added++; if (meta.online) res.online++; }
     } catch { res.failed++; }
     if (batch.length >= 500 || i === parts.length - 1) {
       await addGames(batch);

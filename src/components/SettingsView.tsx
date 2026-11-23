@@ -6,7 +6,7 @@ import { bump, loadGames, runSync, setSettings, state, toast, useStore } from '.
 import { Field } from './ui';
 
 export function SettingsView() {
-  const { settings, games, sync } = useStore();
+  const { settings, allGames: games, sync } = useStore();
   const cfg = getSyncConfig();
   const [repo, setRepo] = useState(cfg?.repo ?? '');
   const [token, setToken] = useState(cfg?.token ?? '');

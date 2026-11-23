@@ -4,11 +4,12 @@ import { resultLabel } from '../lib/filter';
 import { buildQueue } from '../lib/training';
 import { useCards } from './TrainingView';
 import { WdlBar } from './ui';
+import { PoolSwitch } from './PoolSwitch';
 
 const dateKey = (d: string) => d.replace(/\?/g, '0');
 
 export function HomeView() {
-  const { games, settings, bg } = useStore();
+  const { games, allGames, pool, settings, bg } = useStore();
   const { cards } = useCards();
 
   const d = useMemo(() => {
@@ -34,6 +35,12 @@ export function HomeView() {
   }, [games, settings.me]);
 
   const q = cards ? buildQueue(cards, Date.now()) : null;
+  if (!games.length && allGames.length) return (
+    <div className="view home">
+      <div className="toolbar"><h1>Übersicht</h1><span className="grow" /><PoolSwitch /></div>
+      <p className="muted pad">Noch keine {pool === 'otb' ? 'OTB' : 'Online'}-Partien in der Datenbank.</p>
+    </div>
+  );
   if (!games.length) return (
     <div className="view">
       <div className="welcome">
@@ -49,7 +56,7 @@ export function HomeView() {
 
   return (
     <div className="view home">
-      <div className="toolbar"><h1>Übersicht</h1></div>
+      <div className="toolbar"><h1>Übersicht</h1><span className="grow" /><PoolSwitch /></div>
       <div className="kpis">
         <div className="kpi"><small>Partien</small><b>{games.length.toLocaleString('de')}</b><span className="muted small">{games.filter(g => g.accW != null).length.toLocaleString('de')} mit Report</span></div>
         {d.last.length > 0 && (

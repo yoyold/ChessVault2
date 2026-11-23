@@ -14,6 +14,21 @@ function hashStr(s: string): string {
   return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
 }
 
+// A server game URL (not a study, analysis board or broadcast) – a bare Site "Chess.com" is not enough, since
+// over-the-board games are often entered on an online analysis board and exported from there.
+const ONLINE_URL = /lichess\.org\/(?!study|analysis|broadcast|editor)[A-Za-z0-9]{8}\b|chess\.com\/(?:[a-z]{2}\/)?game\/(?:live|daily)|chess\.com\/(?:live|daily)\b/i;
+// event names that Lichess and Chess.com generate ("Rated Blitz game", "Hourly SuperBlitz Arena", "Live Chess", …)
+const ONLINE_EVENT = /^(rated|casual|live|let'?s|hourly|daily|weekly|monthly|yearly|.*\b(arena|bullet|blitz|rapid|classical|correspondence) game\b)|lichess|chess\.com|\bonline\b|titled (tuesday|arena)/i;
+const ONLINE_SOURCES = ['Lichess', 'Chess.com'];
+
+/** Heuristic: was the game played online (Lichess/Chess.com import, server game URL, typical server event name)? */
+export function detectOnline(site: string, event: string, source: string): boolean {
+  return ONLINE_SOURCES.includes(source) || ONLINE_URL.test(site) || ONLINE_EVENT.test(event.trim());
+}
+
+/** Online or over the board; an explicit choice on the record wins over the heuristic. */
+export const isOnline = (g: Pick<GameMeta, 'online' | 'site' | 'event' | 'source'>) => g.online ?? detectOnline(g.site, g.event, g.source);
+
 export function timeClass(tc: string | undefined, event = ''): string {
   if (!tc || tc === '?') {
     const m = event.match(/bullet|blitz|rapid|classical|correspondence/i);
@@ -79,6 +94,7 @@ export function metaFromPgn(pgn: string, source: string): GameMeta {
     plies: sansAll.length,
     tc: timeClass(h.TimeControl, h.Event),
     source,
+    online: detectOnline([h.Site, h.Link].filter(Boolean).join(' '), h.Event || '', source),
     fav: false,
     tags: [],
     hash, uid: hash, shard: shardOf(hash),

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, deleteGames, GameMeta, patchGames } from '../lib/db';
-import { emptyFilter, loadGames, myNames, mySide, openGame, openNewGame, setFilter, startBackground, toast, useStore } from '../lib/store';
+import { emptyFilter, loadGames, myNames, mySide, openGame, openNewGame, Pool, setFilter, startBackground, toast, useStore } from '../lib/store';
+import { PoolSwitch } from './PoolSwitch';
 import { buildPredicate, countActive, download, nGames, resultLabel } from '../lib/filter';
 import { Field, Icon, Modal } from './ui';
 import { findPosition, indexState } from '../lib/posindex';
@@ -28,7 +29,7 @@ const COLS: { key: SortKey | null; label: string; cls?: string }[] = [
 ];
 
 export function DatabaseView() {
-  const { games, filter, loaded, settings } = useStore();
+  const { games, allGames, pool, filter, loaded, settings } = useStore();
   const ROW = Math.round(36 * (window.innerWidth <= 900 ? Math.min(settings.scale, 1.1) : settings.scale));
   const names = useMemo(() => myNames(), [settings.me]);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'date', dir: -1 });
@@ -61,7 +62,8 @@ export function DatabaseView() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [loaded, games.length === 0]);
-  useEffect(() => { if (box.current) box.current.scrollTop = 0; setScroll(0); }, [filter, sort]);
+  useEffect(() => { if (box.current) box.current.scrollTop = 0; setScroll(0); }, [filter, sort, pool]);
+  useEffect(() => setSel(new Set()), [pool]);
 
   const tags = useMemo(() => [...new Set(games.flatMap(g => g.tags))].sort(), [games]);
   const active = countActive(filter);
@@ -93,12 +95,21 @@ export function DatabaseView() {
     if (t.length > 20 && !confirm(`${t.length} Partien im Hintergrund analysieren? Das dauert etwa 20–60 Sekunden pro Partie; du kannst währenddessen weiterarbeiten.`)) return;
     startBackground(t.map(g => g.id!));
   };
+  const other: Pool = pool === 'otb' ? 'online' : 'otb';
+  const move = async () => {
+    const t = targets();
+    if (!t.length || !confirm(`${nGames(t.length)} in die ${other === 'online' ? 'Online' : 'OTB'}-Datenbank verschieben?`)) return;
+    await patchGames(t.map(g => g.id!), () => ({ online: other === 'online' }));
+    setSel(new Set());
+    await loadGames();
+    toast(`${nGames(t.length)} verschoben.`);
+  };
 
   const F = (k: keyof typeof filter, ph = '', w?: number) => (
     <input value={filter[k] as string} placeholder={ph} style={w ? { width: w } : undefined} onChange={e => setFilter({ [k]: e.target.value } as any)} />
   );
 
-  if (loaded && !games.length) return (
+  if (loaded && !allGames.length) return (
     <div className="view">
       <div className="welcome">
         <h1>Noch keine Partien</h1>
@@ -116,6 +127,7 @@ export function DatabaseView() {
   return (
     <div className="view db-view">
       <div className="toolbar">
+        <PoolSwitch />
         <div className="search">
           <Icon name="search" />
           <input value={filter.q} placeholder="Spieler, Turnier, Eröffnung, ECO, Jahr" onChange={e => setFilter({ q: e.target.value })} />
@@ -194,17 +206,18 @@ export function DatabaseView() {
               </div>
             ))}
           </div>
-          {loaded && !rows.length && <div className="muted pad center-text">Keine Partien passen zu diesen Filtern.</div>}
+          {loaded && !rows.length && <div className="muted pad center-text">{games.length ? 'Keine Partien passen zu diesen Filtern.' : pool === 'otb' ? 'Noch keine OTB-Partien – importiere eine PGN-Datei oder lege eine neue Partie an.' : 'Noch keine Online-Partien – lade sie über „Importieren“ von Lichess oder Chess.com.'}</div>}
         </div>
       </div>
 
       <div className="statusbar">
-        <span><b>{rows.length.toLocaleString('de')}</b> von {games.length.toLocaleString('de')} Partien{sel.size ? ` · ${sel.size} ausgewählt` : ''}</span>
+        <span><b>{rows.length.toLocaleString('de')}</b> von {games.length.toLocaleString('de')} {pool === 'otb' ? 'OTB' : 'Online'}-Partien{sel.size ? ` · ${sel.size} ausgewählt` : ''}</span>
         <span className="grow" />
         <span className="muted small">Aktion für {targetLabel}:</span>
         <button className="btn small" onClick={analyzeBatch}>Reports erstellen</button>
         <button className="btn small" onClick={() => setTagOpen(true)}>Schlagwort</button>
         <button className="btn small" onClick={exportPgn}>PGN-Export</button>
+        <button className="btn small" onClick={move}>Nach {other === 'online' ? 'Online' : 'OTB'} verschieben</button>
         <button className="btn small danger" onClick={remove}>Löschen</button>
       </div>
 

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { db, GameMeta, onLocalChange, updateGame, addGames, kvGet, patchGames } from './db';
 import { Game, Node, newGame, mainline, stripSan } from './tree';
 import { parseGame, serializeGame } from './pgn';
-import { metaFromPgn, normalizeDate } from './meta';
+import { isOnline, metaFromPgn, normalizeDate } from './meta';
 import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
@@ -47,9 +47,13 @@ export interface Session {
 
 export interface SyncStatus { state: 'off' | 'idle' | 'busy' | 'error'; msg: string; last: number }
 
+export type Pool = 'otb' | 'online';
+
 interface State {
   view: View;
-  games: GameMeta[];
+  pool: Pool; // which half of the database the views show: over-the-board or online games
+  allGames: GameMeta[]; // games of both pools
+  games: GameMeta[]; // games of the active pool
   reps: GameMeta[]; // repertoire records (kept out of the game list)
   notes: GameMeta[]; // position notes (records with `note`)
   loaded: boolean;
@@ -74,7 +78,7 @@ function freshSession(): Session {
 }
 
 export const state: State = {
-  view: 'home', games: [], reps: [], notes: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
+  view: 'home', pool: 'otb', allGames: [], games: [], reps: [], notes: [], loaded: false, settings: loadSettings(), filter: emptyFilter(),
   session: freshSession(), sync: { state: getSyncConfig() ? 'idle' : 'off', msg: '', last: 0 }, toast: null, bg: null,
 };
 
@@ -126,11 +130,22 @@ export async function loadGames() {
     for (const g of fix) { g.date = normalizeDate(g.date); g.year = parseInt(g.date.slice(0, 4), 10) || 0; }
     await patchGames(fix.map(g => g.id!), g => { const date = normalizeDate(g.date); return { date, year: parseInt(date.slice(0, 4), 10) || 0 }; });
   }
-  state.games = all.filter(g => !g.deleted && !g.rep && !g.note);
+  state.allGames = all.filter(g => !g.deleted && !g.rep && !g.note);
+  state.games = poolOf(state.allGames, state.pool);
   state.reps = all.filter(g => !g.deleted && g.rep);
   state.notes = all.filter(g => !g.deleted && g.note);
-  syncIndex(state.games); // background; views re-render through onIndexChange
+  syncIndex(state.allGames); // background; views re-render through onIndexChange
   state.loaded = true;
+  bump();
+}
+
+const poolOf = (games: GameMeta[], pool: Pool) => games.filter(g => isOnline(g) === (pool === 'online'));
+
+/** Switches between the over-the-board and the online database; all views follow. */
+export function setPool(pool: Pool) {
+  if (state.pool === pool) return;
+  state.pool = pool;
+  state.games = poolOf(state.allGames, pool);
   bump();
 }
 
@@ -158,7 +173,7 @@ export async function openGame(id: number, ply?: number, path?: string[]) {
   if (!row) { toast('Partie nicht gefunden.', 'err'); return; }
   const game = parseGame(row.pgn);
   const rep = (await db.reports.get(id)) ?? null;
-  const meta = state.games.find(g => g.id === id) ?? state.reps.find(g => g.id === id);
+  const meta = state.allGames.find(g => g.id === id) ?? state.reps.find(g => g.id === id);
   let cur = game.root;
   if (ply) { const line = mainline(game.root); cur = line[Math.min(ply, line.length) - 1] ?? game.root; }
   if (path) for (const san of path) { const n = cur.children.find(c => stripSan(c.san) === san); if (!n) break; cur = n; }
@@ -196,6 +211,7 @@ export async function saveSession(silent = false) {
   s.dirty = false; // edits made while the write is in flight set it again and trigger the next autosave
   try {
   const meta = metaFromPgn(pgn, 'Eingabe');
+  if (state.pool === 'online') meta.online = true; // a game entered while the online database is shown belongs there
   const rep = reportMatches(s.report, s.game);
   if (s.gameId == null) {
     await addGames([{ meta, pgn }]);
@@ -203,7 +219,7 @@ export async function saveSession(silent = false) {
     s.gameId = row!.id!;
     if (rep) await updateGame(s.gameId, reportPatch(rep, s.game.root.fen.split(' ')[1] === 'w'), undefined, rep);
   } else {
-    const { hash: _h, uid: _u, shard: _s, added: _a, fav: _f, tags: _t, source: _src, updated: _up, dirty: _d, ...rest } = meta;
+    const { hash: _h, uid: _u, shard: _s, added: _a, fav: _f, tags: _t, source: _src, updated: _up, dirty: _d, online: _o, ...rest } = meta;
     await updateGame(s.gameId, { ...rest, ...(rep ? reportPatch(rep, s.game.root.fen.split(' ')[1] === 'w') : { accW: undefined, accB: undefined, errW: undefined, errB: undefined }) }, pgn, rep ?? null);
   }
   } catch (e: any) { s.dirty = true; toast('Speichern fehlgeschlagen: ' + e.message, 'err'); return; }
@@ -219,7 +235,7 @@ function reportPatch(report: Report, startsWhite = true) {
 export async function saveReport(id: number, report: Report, startsWhite = true) {
   const patch = reportPatch(report, startsWhite);
   await updateGame(id, patch, undefined, report);
-  const g = state.games.find(x => x.id === id);
+  const g = state.allGames.find(x => x.id === id);
   if (g) Object.assign(g, patch);
   bump();
 }
@@ -246,7 +262,7 @@ export async function startBackground(ids: number[]) {
   bump();
   try {
     for (let i = 0; i < ids.length && !bgCtl.cancelled; i++) {
-      const meta = state.games.find(g => g.id === ids[i]);
+      const meta = state.allGames.find(g => g.id === ids[i]);
       state.bg = { done: i, total: ids.length, label: meta ? `${meta.white} – ${meta.black}` : '' };
       bump();
       const row = await db.pgns.get(ids[i]);
@@ -297,7 +313,7 @@ export async function initApp() {
   applyLook();
   onIndexChange(() => bump());
   await loadGames();
-  if (!state.games.length) { state.view = 'db'; bump(); }
+  if (!state.allGames.length) { state.view = 'db'; bump(); }
   onLocalChange(() => scheduleSync());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSession(); });
   if (getSyncConfig()) {

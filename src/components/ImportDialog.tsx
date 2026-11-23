@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Field, Modal } from './ui';
 import { nGames } from '../lib/filter';
 import { fetchChessCom, fetchLichess, importPgnText } from '../lib/importers';
-import { loadGames, myNames, setSettings, state, toast } from '../lib/store';
+import { loadGames, myNames, setPool, setSettings, state, toast } from '../lib/store';
 
 type Src = 'file' | 'paste' | 'lichess' | 'chesscom';
 
@@ -24,7 +24,12 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       const r = await importPgnText(pgn, label, (d, t) => setBusy(`Importiere ${d.toLocaleString('de')} / ${t.toLocaleString('de')} …`));
       await loadGames();
       if (player && !myNames().includes(player.toLowerCase())) setSettings({ me: state.settings.me.trim() ? `${state.settings.me.trim()}; ${player}` : player });
-      toast(`${nGames(r.added)} importiert` + (r.duplicates ? `, ${r.duplicates} Duplikate übersprungen` : '') + (r.failed ? `, ${r.failed} fehlerhaft` : '') + '.');
+      const otb = r.added - r.online;
+      const split = r.online && otb ? ` (${otb} OTB, ${r.online} online)` : '';
+      toast(`${nGames(r.added)} importiert${split}` + (r.duplicates ? `, ${r.duplicates} Duplikate übersprungen` : '') + (r.failed ? `, ${r.failed} fehlerhaft` : '') + '.');
+      // show the half of the database the new games went to
+      if (r.added && !otb) setPool('online');
+      else if (r.added && !r.online) setPool('otb');
       if (r.added || r.duplicates) onClose();
       else setErr('Keine Partien gefunden.');
     } catch (e: any) { setErr(e.message || String(e)); }
