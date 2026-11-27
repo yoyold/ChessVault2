@@ -289,8 +289,9 @@ export async function runSync(silent = true) {
   try {
     const r = await syncNow(msg => { if (msg) { state.sync = { ...state.sync, msg }; bump(); } });
     state.sync = { state: 'idle', msg: '', last: Date.now() };
-    if (r.pulled) await loadGames();
-    if (!silent || r.pulled) toast(r.pulled || r.pushed ? `Sync: ${r.pulled} empfangen, ${r.pushed} gesendet.` : 'Alles synchron.');
+    if (r.pulled || r.inbox) await loadGames();
+    if (r.inbox) toast(`${r.inbox} ${r.inbox === 1 ? 'Partie' : 'Partien'} aus dem Eingang übernommen (Schlagwort „Eingang“).`);
+    else if (!silent || r.pulled) toast(r.pulled || r.pushed ? `Sync: ${r.pulled} empfangen, ${r.pushed} gesendet.` : 'Alles synchron.');
   } catch (e: any) {
     state.sync = { ...state.sync, state: 'error', msg: e.message };
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message, 'err');
@@ -322,5 +323,9 @@ export async function initApp() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && Date.now() - state.sync.last > 60_000) runSync(true);
     });
+    // while the app is open, look for new data (e.g. games an agent put into the inbox) every few minutes
+    setInterval(() => {
+      if (document.visibilityState === 'visible' && state.sync.state !== 'busy' && Date.now() - state.sync.last > 3 * 60_000) runSync(true);
+    }, 30_000);
   }
 }

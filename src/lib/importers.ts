@@ -4,7 +4,7 @@ import { splitPgn } from './pgn';
 
 export interface ImportResult { added: number; duplicates: number; failed: number; online: number }
 
-export async function importPgnText(text: string, source: string, onProgress?: (done: number, total: number) => void): Promise<ImportResult> {
+export async function importPgnText(text: string, source: string, onProgress?: (done: number, total: number) => void, tags: string[] = []): Promise<ImportResult> {
   const parts = splitPgn(text);
   const known = new Set<string>();
   await db.games.each(g => { if (!g.deleted) known.add(g.hash); });
@@ -13,6 +13,7 @@ export async function importPgnText(text: string, source: string, onProgress?: (
   for (let i = 0; i < parts.length; i++) {
     try {
       const meta = metaFromPgn(parts[i], source);
+      if (tags.length) meta.tags = [...tags];
       if (!meta.plies && meta.white === '?' && meta.black === '?') res.failed++;
       else if (known.has(meta.hash)) res.duplicates++;
       else { known.add(meta.hash); batch.push({ meta, pgn: parts[i] }); res.added++; if (meta.online) res.online++; }

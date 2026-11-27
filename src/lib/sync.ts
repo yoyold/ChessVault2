@@ -4,10 +4,11 @@
 // Conflicts: per game the most recent change wins; deletions travel as tombstones.
 import { db, GameMeta, kvGet, kvSet, SHARDS } from './db';
 import type { Report } from './report';
+import { importPgnText } from './importers';
 
 export interface SyncConfig { repo: string; token: string; branch: string }
 export interface SyncRecord { uid: string; updated: number; deleted?: boolean; meta?: Omit<GameMeta, 'id' | 'dirty'>; pgn?: string; report?: Report }
-export interface SyncResult { pulled: number; pushed: number }
+export interface SyncResult { pulled: number; pushed: number; inbox: number }
 
 const CFG_KEY = 'caissa.sync';
 const API = 'https://api.github.com';
@@ -113,11 +114,55 @@ export function syncNow(onStatus: (s: string) => void = () => {}): Promise<SyncR
   return running;
 }
 
+// ---------- Inbox ----------
+// Other tools (e.g. an AI agent such as Hermes) save games by committing plain PGN files to `inbox/` on the
+// data repository's default branch – an ordinary commit, no knowledge of the sync format needed. Each sync
+// imports those files (duplicates are skipped by hash) and then deletes them in one commit.
+export const INBOX_DIR = 'inbox/';
+export const INBOX_TAG = 'Eingang';
+
+async function importInbox(cfg: SyncConfig, onStatus: (s: string) => void): Promise<number> {
+  let branch: string, head: string;
+  try {
+    branch = (await gh(cfg, '')).default_branch || 'main';
+    head = (await gh(cfg, `/git/ref/heads/${branch}`)).object.sha;
+  } catch (e) {
+    if (e instanceof HttpError && (e.status === 404 || e.status === 409)) return 0; // empty repository
+    throw e;
+  }
+  const commit = await gh(cfg, `/git/commits/${head}`);
+  const tree = await gh(cfg, `/git/trees/${commit.tree.sha}?recursive=1`);
+  const files: { path: string; sha: string }[] = tree.tree.filter((t: any) =>
+    t.type === 'blob' && t.path.startsWith(INBOX_DIR) && /\.(pgn|txt)$/i.test(t.path));
+  if (!files.length) return 0;
+  let added = 0;
+  for (let i = 0; i < files.length; i++) {
+    onStatus(`Importiere Eingang ${i + 1}/${files.length} …`);
+    const text = await gh(cfg, `/git/blobs/${files[i].sha}`, { raw: true });
+    added += (await importPgnText(text, 'Eingang', undefined, [INBOX_TAG])).added;
+  }
+  // Remove the imported files. If the branch moved meanwhile (the agent committed again), the update is
+  // refused; the files are then simply looked at again next time – already imported games count as duplicates.
+  try {
+    const t = await gh(cfg, '/git/trees', { method: 'POST', body: JSON.stringify({
+      base_tree: commit.tree.sha, tree: files.map(f => ({ path: f.path, mode: '100644', type: 'blob', sha: null })),
+    }) });
+    const c = await gh(cfg, '/git/commits', { method: 'POST', body: JSON.stringify({
+      message: `Import ${files.length} inbox file(s) into ChessVault2`, tree: t.sha, parents: [head],
+    }) });
+    await gh(cfg, `/git/refs/heads/${branch}`, { method: 'PATCH', body: JSON.stringify({ sha: c.sha, force: false }) });
+  } catch (e) {
+    if (!(e instanceof HttpError && e.status === 422)) throw e;
+  }
+  return added;
+}
+
 async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
   const cfg = getSyncConfig();
   if (!cfg) throw new Error('Sync ist nicht eingerichtet.');
   const refPath = `/git/ref/heads/${cfg.branch}`;
   let pulled = 0, pushed = 0;
+  const inbox = await importInbox(cfg, onStatus);
 
   for (let attempt = 0; attempt < 4; attempt++) {
     // 1. Read the state in the repository
@@ -184,7 +229,7 @@ async function doSync(onStatus: (s: string) => void): Promise<SyncResult> {
   }
   await kvSet('lastSync', Date.now());
   onStatus('');
-  return { pulled, pushed };
+  return { pulled, pushed, inbox };
 }
 
 /** Full backup (games, variations, reports, training state, tags) as a single JSON file. */

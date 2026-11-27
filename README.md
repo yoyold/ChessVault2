@@ -54,6 +54,23 @@ deletions are synced too. Synced data: games with variations and comments, repor
 The data is stored unencrypted as JSON shards on the branch `caissa-data`; the branch is rewritten without history on every sync
 so the repository does not grow.
 
+## Letting an agent save games (inbox)
+
+Any tool that can make a GitHub commit can add games: it commits plain PGN files to the folder `inbox/` on the
+**default branch** of the data repository. On its next sync the app imports them (duplicates skipped), tags them
+`Eingang` and deletes the files. While the app is open it checks every few minutes.
+
+For [Hermes Agent](https://github.com/NousResearch/hermes-agent) there is a ready-made skill in
+[`agent/chessvault-inbox/`](agent/chessvault-inbox/) – a `SKILL.md` plus `save_pgn.sh`:
+
+1. Create a second fine-grained token for the data repository (Contents: Read and write) for the agent,
+   so it can be revoked on its own.
+2. Copy the folder `agent/chessvault-inbox/` into the agent's skills directory (usually `~/.hermes/skills/`).
+3. Put `CHESSVAULT_REPO=yourname/chessvault-data` and `CHESSVAULT_TOKEN=…` into the agent's environment
+   (e.g. `~/.hermes/.env`).
+
+Then ask it e.g. "save this game to ChessVault". The script only needs `bash`, `curl` and `base64`.
+
 ## Tech and licences
 
 React, Vite, TypeScript (MIT) · chess.js (BSD-2) · Chessground (GPL-3.0) · Stockfish 19 lite WASM via stockfish.js (GPL-3.0) ·
