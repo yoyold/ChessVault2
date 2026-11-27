@@ -47,13 +47,34 @@ export function Board(p: BoardProps) {
       highlight: { lastMove: true, check: true },
     });
     api.current = cg;
-    const ro = new ResizeObserver(() => cg.redrawAll());
-    ro.observe(el.current!);
-    return () => { ro.disconnect(); cg.destroy(); };
+    const host = el.current!;
+    const ro = new ResizeObserver(() => {
+      // While the host is detached or hidden it measures 0×0; redrawing then would place every arrow
+      // at NaN (chessground divides by the board size). Skip it and redraw once the board has a size again.
+      if (!hasSize(host)) return;
+      cg.redrawAll();
+      apply.current();
+    });
+    ro.observe(host);
+    return () => {
+      ro.disconnect();
+      // A redraw may still be pending (debounced redraw, end of a move animation) and would run on the
+      // detached, size-less board: drop the shapes so it has no arrows to place.
+      cg.state.drawable.shapes = [];
+      cg.state.drawable.autoShapes = [];
+      cg.state.drawable.current = undefined;
+      cg.destroy();
+      api.current = null;
+    };
   }, []);
 
-  useEffect(() => {
-    api.current?.set({
+  const apply = useRef(() => {});
+  apply.current = () => {
+    const cg = api.current;
+    if (!cg) return;
+    // Arrows need a measurable board; without one they are left out and restored by the resize observer.
+    const sized = !!el.current && hasSize(el.current);
+    cg.set({
       fen: p.fen,
       orientation: p.orientation,
       turnColor: p.turn,
@@ -61,10 +82,11 @@ export function Board(p: BoardProps) {
       check: p.check,
       movable: { color: p.turn, dests: p.dests },
       // Chessground drops drawn arrows whenever a position is set, so always pass them along.
-      drawable: { shapes: p.userShapes ?? [] },
+      drawable: { shapes: sized ? p.userShapes ?? [] : [] },
     });
-    api.current?.setAutoShapes(p.shapes);
-  });
+    cg.setAutoShapes(sized ? p.shapes : []);
+  };
+  useEffect(() => apply.current());
 
   let badge = null;
   if (p.badge) {
@@ -82,4 +104,8 @@ export function Board(p: BoardProps) {
       {badge}
     </div>
   );
+}
+
+function hasSize(e: HTMLElement): boolean {
+  return e.isConnected && e.clientWidth > 0 && e.clientHeight > 0;
 }
