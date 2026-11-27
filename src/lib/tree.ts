@@ -12,6 +12,8 @@ export interface Node {
   children: Node[];
   comment?: string;
   pre?: string; // comment before the move (at the start of a variation)
+  botComment?: string; // comment written by an engine or agent (kept apart from the owner's `comment`)
+  vBot?: boolean; // this node starts a variation produced by an engine or agent
   nags?: number[];
   shapes?: Shape[]; // coloured arrows and squares
   clk?: number; // remaining clock after the move in seconds ([%clk])

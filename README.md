@@ -12,6 +12,7 @@ The user interface is in German.
 - **Search and filters**: full-text search, White/Black (optionally ignoring colours), result, year, rating, ECO range, opening name, move sequence, number of moves, time control, tags, favourites, "with report only". Results are coloured from your own point of view.
 - **Analysis board**: live Stockfish analysis (1–5 lines), evaluation bar, entering/promoting/deleting variations, editing game details, pasting and copying PGN/FEN. Changes to a stored game are saved automatically.
 - **Annotating**: move, position and motif symbols, text before and after a move, coloured arrows and squares (stored as `%cal`/`%csl`).
+- **Engine and bot annotations**: comments and variations from an engine or an agent (Stockfish lines, the game report, Hermes, Lichess analysis) are shown in red, apart from your own; they can be marked or unmarked by hand. Stored in PGN as `[%bot]`; a game whose `Annotator` names a bot counts as machine-annotated.
 - **Game report**: every move is classified (great move … blunder), accuracy per side, evaluation graph with hover and click-to-jump, key moments with the better move.
 - **Background analysis**: reports for many games while you keep working.
 - **Repertoire**: one opening repertoire per colour, built from suggestions out of your own games, on the board, or by adding the current line; shows gaps (opponent moves you have no answer to).
@@ -69,7 +70,7 @@ For [Hermes Agent](https://github.com/NousResearch/hermes-agent) there is a read
 3. Put `CHESSVAULT_REPO=yourname/chessvault-data` and `CHESSVAULT_TOKEN=…` into the agent's environment
    (e.g. `~/.hermes/.env`).
 
-Then ask it e.g. "save this game to ChessVault". The script only needs `bash`, `curl` and `base64`.
+Then ask it e.g. "save this game to ChessVault" or "annotate my last game". The skill tells the agent to add `[Annotator "Hermes"]`, so its comments appear in the bot colour; sending a game that is already stored adds the agent's annotations to it. The script only needs `bash`, `curl` and `base64`.
 
 ## Tech and licences
 

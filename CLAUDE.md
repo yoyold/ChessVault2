@@ -26,6 +26,10 @@ Existing users have data under these names; changing them would orphan it:
 - Position notes are records in the games table too (flag `note`, uid `note-<hash>`), kept in `state.notes`.
 - The position index (`src/lib/posindex.ts`, table `posidx`) is derived data: device-local, rebuilt from the
   moves, never synced or backed up.
+- Comments have two authors: `Node.comment` (owner) and `Node.botComment` (engine/agent); `Node.vBot` marks a
+  variation as machine-made. In PGN both are the command `[%bot]` (see `src/lib/annotator.ts`). A game whose
+  `Annotator` header names a bot and carries no marker yet is read as fully machine-annotated.
+- The inbox (`inbox/` on the data repo's default branch) merges annotations into an already stored game.
 - Changes to a stored game autosave (debounced in `bump()`, flushed when leaving); a new, never-saved game does not.
 
 ## Layout and checks

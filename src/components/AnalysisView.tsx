@@ -59,6 +59,61 @@ export function AnalysisView() {
     if (!c.nags.length) c.nags = undefined;
     state.session.dirty = true; bump();
   };
+  /** Inserts an engine line from the current position as a variation marked as engine-made. */
+  const insertEngineLine = (l: PV) => {
+    const sess = state.session;
+    let n = sess.cur;
+    let first: Node | null = null;
+    for (const u of l.pv.slice(0, 12)) {
+      const before = n.children.length;
+      const next = addMove(n, { from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
+      if (!next) break;
+      if (!first && n.children.length !== before) first = next;
+      n = next;
+    }
+    if (!first) { toast('Diese Variante steht schon in der Partie.'); return; }
+    if (first.parent && first.parent.children[0] !== first) first.vBot = true;
+    first.botComment = `${formatScore(l)} (Tiefe ${l.depth})`;
+    sess.dirty = true; bump();
+    toast('Engine-Variante übernommen.');
+  };
+  /** Writes the report's verdicts (inaccuracies, mistakes, blunders) into the game as engine comments. */
+  const writeReport = () => {
+    const sess = state.session;
+    const rep = sess.report;
+    if (!rep) return;
+    const mainl = mainline(sess.game.root);
+    let n = 0;
+    rep.moves.forEach((m, i) => {
+      if (!['inaccuracy', 'mistake', 'blunder'].includes(m.cls)) return;
+      const node = mainl[i];
+      const ev = rep.evals[i];
+      if (!node || !ev?.bestSan) return;
+      const nag = m.cls === 'inaccuracy' ? 6 : m.cls === 'mistake' ? 2 : 4;
+      if (!(node.nags ?? []).some(g => g <= 6)) node.nags = [...(node.nags ?? []), nag];
+      node.botComment = `${CLASS_INFO[m.cls].label} (${formatScore(rep.evals[i + 1])}). Besser war ${ev.bestSan} (${formatScore(ev)}).`;
+      // the better continuation as an engine variation from the position before the move
+      let at = node.parent!;
+      let first: Node | null = null;
+      for (const san of (ev.pv ?? ev.bestSan).split(' ').filter(Boolean)) {
+        const before = at.children.length;
+        const next = addMove(at, san);
+        if (!next) break;
+        if (!first && at.children.length !== before) first = next;
+        at = next;
+      }
+      if (first && first.parent!.children[0] !== first) first.vBot = true;
+      n++;
+    });
+    sess.dirty = true; bump();
+    toast(n ? `${n} Engine-Kommentare in die Partie geschrieben.` : 'Keine Ungenauigkeiten oder Fehler zum Kommentieren.');
+  };
+  /** The node where the variation containing `n` branches off the line above it. */
+  const variationStart = (n: Node): Node => {
+    let x = n;
+    while (x.parent && x.parent.children[0] === x) x = x.parent;
+    return x;
+  };
   const toRep = async (side: 'w' | 'b') => {
     const sans = pathTo(state.session.cur).map(n => stripSan(n.san));
     const n = await addLines(side, [sans]);
@@ -304,6 +359,7 @@ export function AnalysisView() {
               <div key={i} className="pv" onClick={() => l.pv[0] && play({ from: l.pv[0].slice(0, 2), to: l.pv[0].slice(2, 4), promotion: l.pv[0][4] })} title="Klicken, um den ersten Zug auszuführen">
                 <span className="pv-score">{formatScore(l)}</span>
                 <span className="pv-moves">{pv.text}</span>
+                <button className="pv-add" title="Als Engine-Variante in die Partie übernehmen" onClick={e => { e.stopPropagation(); insertEngineLine(l); }}>+ Variante</button>
               </div>
             );
           })}
@@ -343,6 +399,19 @@ export function AnalysisView() {
                   placeholder={cur === root ? 'Kommentar zur Partie …' : `Kommentar nach ${cur.san} …`}
                   value={cur.comment ?? ''} onChange={e => { cur.comment = e.target.value || undefined; s.dirty = true; bump(); }}
                 />
+                {cur.botComment !== undefined ? (
+                  <>
+                    <div className="bot-label">
+                      Kommentar von Engine / Bot
+                      <span className="link" onClick={() => { cur.comment = [cur.comment, cur.botComment].filter(Boolean).join(' ') || undefined; cur.botComment = undefined; s.dirty = true; bump(); }}>als eigenen übernehmen</span>
+                      <span className="link" onClick={() => { cur.botComment = undefined; s.dirty = true; bump(); }}>löschen</span>
+                    </div>
+                    <textarea className="bot" value={cur.botComment} onChange={e => { cur.botComment = e.target.value; s.dirty = true; bump(); }} />
+                  </>
+                ) : (
+                  <div className="bot-label"><span className="link" onClick={() => { cur.botComment = cur.comment ?? ''; cur.comment = undefined; s.dirty = true; bump(); }}>
+                    {cur.comment ? 'Kommentar als Engine/Bot markieren' : '+ Engine-/Bot-Kommentar'}</span></div>
+                )}
                 <div className="hint">
                   Pfeile und Felder: Rechtsklick (ziehen) auf dem Brett – grün, mit Umschalt rot, mit Alt blau, mit beiden gelb.
                   {cur.shapes?.length ? <> · <span className="link" onClick={() => { cur.shapes = undefined; s.dirty = true; setShapeTick(t => t + 1); bump(); }}>Markierungen löschen</span></> : null}
@@ -405,6 +474,7 @@ export function AnalysisView() {
                   </div>
                   <div className="row pad muted small">
                     <span>Tiefe {report.depth} · Stockfish</span><span className="grow" />
+                    <button className="btn small" title="Bewertung und bessere Fortsetzung als Engine-Kommentare in die Partie schreiben" onClick={writeReport}>In Partie übernehmen</button>
                     <button className="btn small" onClick={runReport}>Neu berechnen</button>
                   </div>
                 </>
@@ -422,6 +492,11 @@ export function AnalysisView() {
         <div className="ctx-back" onClick={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null); }}>
           <div className="menu-pop fixed" style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 190) }}>
             {!isMainline(menu.node) && <button onClick={() => { promote(menu.node); s.dirty = true; s.report = null; go(menu.node); }}>Variante hochstufen</button>}
+            {!isMainline(menu.node) && (() => {
+              const start = variationStart(menu.node);
+              return <button onClick={() => { start.vBot = !start.vBot || undefined; s.dirty = true; setMenu(null); bump(); }}>
+                {start.vBot ? 'Als eigene Variante markieren' : 'Als Engine-/Bot-Variante markieren'}</button>;
+            })()}
             <button onClick={() => { const p = deleteNode(menu.node); s.dirty = true; go(p); }}>Ab hier löschen</button>
           </div>
         </div>
@@ -445,6 +520,7 @@ function HeaderDialog({ onClose }: { onClose: () => void }) {
         <Field label="Schwarz">{inp('Black')}</Field><Field label="Elo Schwarz">{inp('BlackElo')}</Field>
         <Field label="Turnier / Event">{inp('Event')}</Field><Field label="Ort">{inp('Site')}</Field>
         <Field label="Datum">{inp('Date', 'JJJJ.MM.TT')}</Field><Field label="Runde">{inp('Round')}</Field>
+        <Field label="Kommentator (Annotator)">{inp('Annotator')}</Field>
         <Field label="Ergebnis">
           <select value={h.Result || '*'} onChange={e => setH({ ...h, Result: e.target.value })}>
             <option value="1-0">1–0</option><option value="1/2-1/2">½–½</option><option value="0-1">0–1</option><option value="*">* (offen)</option>

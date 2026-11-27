@@ -415,3 +415,17 @@ label.btn { display: inline-block; }
 .tu-table input.tu-input.bad { border-color: var(--danger); }
 .tu-note textarea { resize: vertical; min-height: calc(90 * var(--u)); font-size: calc(14 * var(--u)); }
 .tu-grp { display: inline-flex; align-items: center; gap: calc(6 * var(--u)); white-space: nowrap; }
+
+/* ---------- Engine / bot annotations ---------- */
+:root { --bot: #e0705c; --bot-wash: rgba(224, 112, 92, .12); }
+:root[data-theme='light'] { --bot: #b3412e; --bot-wash: rgba(179, 65, 46, .08); }
+.mv.bot { color: var(--bot); }
+.mv.bot .mv-no { color: var(--bot); opacity: .7; }
+.mv-var.bot { color: var(--bot); }
+.mv-var.bot.block { border-left-color: color-mix(in srgb, var(--bot) 55%, transparent); }
+.mv-comment.bot { color: var(--bot); font-style: normal; }
+.annot textarea.bot { border-color: color-mix(in srgb, var(--bot) 55%, var(--line)); color: var(--bot); background: var(--bot-wash); }
+.annot .bot-label { font-size: calc(12.5 * var(--u)); color: var(--bot); display: flex; align-items: center; gap: calc(8 * var(--u)); }
+.annot .bot-label .link { color: var(--muted); }
+.pv-add { flex: none; border: 1px solid var(--line); background: none; color: var(--muted); border-radius: calc(4 * var(--u)); padding: 0 calc(6 * var(--u)); cursor: pointer; font-size: calc(12.5 * var(--u)); }
+.pv-add:hover { color: var(--bot); border-color: var(--bot); }

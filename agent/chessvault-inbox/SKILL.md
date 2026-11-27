@@ -1,6 +1,6 @@
 ---
 name: chessvault-inbox
-description: Save chess games (PGN) into the owner's ChessVault2 database. Use when the user asks to save, store, add or send a chess game, a PGN, an annotated analysis or a set of games to ChessVault (ChessVault2, "my chess database"). Not for reading games back.
+description: Save chess games (PGN) into the owner's ChessVault2 database, or add your annotations to a game that is already there. Use when the user asks to save, store, add or send a chess game, a PGN, an annotated analysis or a set of games to ChessVault (ChessVault2, "my chess database"), or to comment/annotate one of their games there. Not for reading games back.
 ---
 
 # Save games to ChessVault2
@@ -25,6 +25,24 @@ duplicates are skipped; the file is deleted from the inbox afterwards.
 
 The script needs `CHESSVAULT_REPO` (e.g. `yourname/chessvault-data`) and `CHESSVAULT_TOKEN` in the
 environment. If either is missing, ask the user to set them; never print or echo the token.
+
+## Mark yourself as the annotator
+
+ChessVault2 shows comments and variations written by an engine or an agent in a different colour (red),
+apart from the owner's own words. So that your annotations are recognised as yours:
+
+- **Always add the header `[Annotator "Hermes"]`** when the comments and variations in the PGN are yours.
+  Everything in such a game is then shown as machine-made.
+- If one PGN mixes the owner's words (e.g. something they dictated to you) with yours, leave out the
+  `Annotator` header and instead start each of *your* comments with `[%bot]`, e.g. `{[%bot] White is better.}`.
+  To mark a whole variation as yours, put `{[%bot]}` right after its opening parenthesis: `({[%bot]} 8... Qe7 9. Ne5)`.
+
+## Annotating a game that is already in the database
+
+Send the game again with the **same** `White`, `Black`, `Date`, `Round`, `Result` tags and the **same moves**,
+plus your comments, symbols and variations (and `[Annotator "Hermes"]`). The app recognises it as the
+existing game and adds your annotations to it instead of creating a copy; the owner's own comments are kept,
+and your earlier comments on the same moves are replaced by the new ones.
 
 ## PGN rules that matter for the import
 
@@ -51,7 +69,8 @@ environment. If either is missing, ask the user to set them; never print or echo
 [Result "1-0"]
 [WhiteElo "1520"]
 [BlackElo "1480"]
+[Annotator "Hermes"]
 
 1. d4 d5 2. Bf4 Nf6 3. e3 e6 4. Nf3 Bd6 {Das übliche Abtauschangebot.} 5. Bg3 O-O
-6. Bd3 c5 7. c3 Nc6 8. Nbd2 b6 9. Ne5 $1 Bb7 10. f4 1-0
+6. Bd3 c5 7. c3 Nc6 8. Nbd2 b6 (8... Qe7 {ist die Hauptvariante} 9. Ne5) 9. Ne5 $1 Bb7 10. f4 1-0
 ```

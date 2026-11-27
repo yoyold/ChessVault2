@@ -75,6 +75,9 @@ export function SettingsView() {
           <Field label="Meine Spielernamen (mehrere mit Semikolon trennen)">
             <input value={settings.me} onChange={e => setSettings({ me: e.target.value })} placeholder="lichessname; Nachname, Vorname" />
           </Field>
+          <Field label="Kommentatoren, die als Engine/Bot gelten (Feld „Annotator“, mit Komma getrennt)">
+            <input value={settings.bots} onChange={e => setSettings({ bots: e.target.value })} placeholder="Hermes, Stockfish, lichess.org" />
+          </Field>
           <Field label="Analysetiefe für Partie-Reports">
             <select value={settings.reportDepth} onChange={e => setSettings({ reportDepth: +e.target.value })}>
               <option value={10}>Schnell (Tiefe 10)</option><option value={14}>Standard (Tiefe 14)</option>

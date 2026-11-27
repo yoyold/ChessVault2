@@ -6,6 +6,7 @@ import { isOnline, metaFromPgn, normalizeDate } from './meta';
 import { analyzeGame, errorCounts, Report } from './report';
 import type { Job } from './engine';
 import { getSyncConfig, syncNow } from './sync';
+import { DEFAULT_BOTS } from './annotator';
 import { onIndexChange, syncIndex } from './posindex';
 
 export type View = 'home' | 'db' | 'analysis' | 'repertoire' | 'training' | 'notes' | 'tournaments' | 'stats' | 'settings';
@@ -17,6 +18,7 @@ export interface Settings {
   me: string;
   engineOn: boolean;
   scale: number;
+  bots: string; // annotator names counted as engine/bot (see annotator.ts)
 }
 
 export interface Filter {
@@ -65,7 +67,7 @@ interface State {
   bg: { done: number; total: number; label: string } | null;
 }
 
-const defaultSettings: Settings = { theme: 'dark', reportDepth: 14, multipv: 3, me: '', engineOn: true, scale: 1.3 };
+const defaultSettings: Settings = { theme: 'dark', reportDepth: 14, multipv: 3, me: '', engineOn: true, scale: 1.3, bots: DEFAULT_BOTS };
 
 function loadSettings(): Settings {
   try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem('caissa.settings') || '{}') }; }
@@ -289,8 +291,11 @@ export async function runSync(silent = true) {
   try {
     const r = await syncNow(msg => { if (msg) { state.sync = { ...state.sync, msg }; bump(); } });
     state.sync = { state: 'idle', msg: '', last: Date.now() };
-    if (r.pulled || r.inbox) await loadGames();
-    if (r.inbox) toast(`${r.inbox} ${r.inbox === 1 ? 'Partie' : 'Partien'} aus dem Eingang übernommen (Schlagwort „Eingang“).`);
+    if (r.pulled || r.inbox || r.inboxMerged) await loadGames();
+    if (r.inbox || r.inboxMerged) toast([
+      r.inbox ? `${r.inbox} ${r.inbox === 1 ? 'Partie' : 'Partien'} aus dem Eingang übernommen (Schlagwort „Eingang“)` : '',
+      r.inboxMerged ? `${r.inboxMerged} vorhandene ${r.inboxMerged === 1 ? 'Partie' : 'Partien'} um Kommentare ergänzt` : '',
+    ].filter(Boolean).join(', ') + '.');
     else if (!silent || r.pulled) toast(r.pulled || r.pushed ? `Sync: ${r.pulled} empfangen, ${r.pushed} gesendet.` : 'Alles synchron.');
   } catch (e: any) {
     state.sync = { ...state.sync, state: 'error', msg: e.message };

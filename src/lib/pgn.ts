@@ -1,4 +1,5 @@
 import { Game, Node, Shape, addMove, newRoot, START_FEN } from './tree';
+import { BOT_MARK, BOT_RE, isBotAnnotator } from './annotator';
 import { pgnClock } from './clock';
 
 /** Splits a PGN text into individual games. */
@@ -108,6 +109,9 @@ function shapeTags(shapes?: Shape[]): string {
 export function parseGame(pgn: string): Game {
   const headers = parseHeaders(pgn);
   const text = movetextOf(pgn);
+  // a bot-annotated game without markers yet: everything in it was written by the bot
+  const allBot = isBotAnnotator(headers.Annotator) && !text.includes(BOT_MARK);
+  let pendingBot = false;
   const root = newRoot(headers.FEN && headers.FEN.split(' ').length >= 4 ? headers.FEN : START_FEN);
   let cur: Node = root;
   const stack: Node[] = [];
@@ -121,11 +125,14 @@ export function parseGame(pgn: string): Game {
     if (/\s/.test(ch)) { i++; continue; }
     if (ch === '{') {
       const end = text.indexOf('}', i);
-      const raw = text.slice(i + 1, end < 0 ? n : end).replace(/\s+/g, ' ').trim();
+      let raw = text.slice(i + 1, end < 0 ? n : end).replace(/\s+/g, ' ').trim();
+      const bot = allBot || raw.includes(BOT_MARK);
+      raw = raw.replace(BOT_RE, ' ');
       const { text: c, shapes, clk, emt } = splitShapes(raw);
-      if (afterOpen) { if (c) pendingPre = pendingPre ? pendingPre + ' ' + c : c; }
+      if (afterOpen) { if (c) pendingPre = pendingPre ? pendingPre + ' ' + c : c; if (bot) pendingBot = true; }
       else {
-        if (c) cur.comment = cur.comment ? cur.comment + ' ' + c : c;
+        if (c && bot) cur.botComment = cur.botComment ? cur.botComment + ' ' + c : c;
+        else if (c) cur.comment = cur.comment ? cur.comment + ' ' + c : c;
         if (shapes.length) cur.shapes = [...(cur.shapes ?? []), ...shapes];
         if (clk != null) cur.clk = clk;
         if (emt != null) cur.emt = emt;
@@ -136,7 +143,7 @@ export function parseGame(pgn: string): Game {
       const end = text.indexOf('\n', i);
       i = end < 0 ? n : end + 1; continue;
     }
-    if (ch === '(') { stack.push(cur); if (cur.parent) cur = cur.parent; i++; afterOpen = true; pendingPre = ''; continue; }
+    if (ch === '(') { stack.push(cur); if (cur.parent) cur = cur.parent; i++; afterOpen = true; pendingPre = ''; pendingBot = allBot; continue; }
     if (ch === ')') { const p = stack.pop(); if (p) cur = p; i++; afterOpen = false; continue; }
     let j = i;
     while (j < n && !/[\s{}()]/.test(text[j])) j++;
@@ -153,7 +160,8 @@ export function parseGame(pgn: string): Game {
     const child = addMove(cur, tok);
     if (!child) { broken = true; break; }
     if (afterOpen && pendingPre && !child.pre) child.pre = pendingPre;
-    afterOpen = false; pendingPre = '';
+    if (afterOpen && pendingBot && child.parent && child.parent.children[0] !== child) child.vBot = true;
+    afterOpen = false; pendingPre = ''; pendingBot = false;
     if (sm && SUFFIX_NAG[sm[0]] && !(child.nags ?? []).includes(SUFFIX_NAG[sm[0]])) (child.nags ??= []).push(SUFFIX_NAG[sm[0]]);
     cur = child;
   }
@@ -169,7 +177,12 @@ export function serializeGame(g: Game): string {
   const head = keys.map(k => `[${k} "${String(h[k]).replace(/(["\\])/g, '\\$1')}"]`).join('\n');
   const out: string[] = [];
   { const c = [g.root.comment, shapeTags(g.root.shapes)].filter(Boolean).join(' '); if (c) out.push(`{${c.replace(/}/g, ')')}}`); }
+  if (g.root.botComment) out.push(`{${BOT_MARK} ${g.root.botComment.replace(/}/g, ')')}}`);
+  const before = out.length;
   writeLine(g.root, out, true);
+  // A bot-named Annotator without any marker would make the next read treat every comment as the bot's –
+  // including the owner's. One empty marker keeps the markers authoritative.
+  if (isBotAnnotator(h.Annotator) && !out.some(t => t.includes(BOT_MARK))) out.splice(before, 0, `{${BOT_MARK}}`);
   out.push(h.Result);
   // wrap lines at ~80 characters
   const lines: string[] = [];
@@ -192,8 +205,10 @@ function annot(n: Node, out: string[]): boolean {
   for (const g of n.nags ?? []) out.push('$' + g);
   const times = (n.clk != null ? `[%clk ${pgnClock(n.clk)}]` : '') + (n.emt != null ? `[%emt ${pgnClock(n.emt)}]` : '');
   const c = [n.comment, shapeTags(n.shapes), times].filter(Boolean).join(' ');
-  if (c) { out.push(`{${c.replace(/}/g, ')')}}`); return true; }
-  return false;
+  let any = false;
+  if (c) { out.push(`{${c.replace(/}/g, ')')}}`); any = true; }
+  if (n.botComment) { out.push(`{${BOT_MARK} ${n.botComment.replace(/}/g, ')')}}`); any = true; }
+  return any;
 }
 
 function writeLine(from: Node, out: string[], force: boolean) {
@@ -204,7 +219,7 @@ function writeLine(from: Node, out: string[], force: boolean) {
     force = annot(main, out);
     for (const v of vars) {
       out.push('(');
-      if (v.pre) out.push(`{${v.pre.replace(/}/g, ')')}}`);
+      if (v.pre || v.vBot) out.push(`{${[v.vBot ? BOT_MARK : '', (v.pre ?? '').replace(/}/g, ')')].filter(Boolean).join(' ')}}`);
       out.push(moveTok(v, true));
       writeLine(v, out, annot(v, out));
       out.push(')');
