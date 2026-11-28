@@ -429,3 +429,4 @@ label.btn { display: inline-block; }
 .annot .bot-label .link { color: var(--muted); }
 .pv-add { flex: none; border: 1px solid var(--line); background: none; color: var(--muted); border-radius: calc(4 * var(--u)); padding: 0 calc(6 * var(--u)); cursor: pointer; font-size: calc(12.5 * var(--u)); }
 .pv-add:hover { color: var(--bot); border-color: var(--bot); }
+.author-badge { margin-right: calc(4 * var(--u)); font-style: normal; cursor: default; }

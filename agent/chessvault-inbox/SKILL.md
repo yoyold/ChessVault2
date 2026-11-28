@@ -33,6 +33,8 @@ apart from the owner's own words. So that your annotations are recognised as you
 
 - **Always add the header `[Annotator "Hermes"]`** when the comments and variations in the PGN are yours.
   Everything in such a game is then shown as machine-made.
+- **Start each of your comments with `Hermes:`** (e.g. `{Hermes: White is better.}`). The app shows the name
+  as a robot symbol; engine evaluations you quote can start with `Stockfish:` instead, shown as a fish.
 - If one PGN mixes the owner's words (e.g. something they dictated to you) with yours, leave out the
   `Annotator` header and instead start each of *your* comments with `[%bot]`, e.g. `{[%bot] White is better.}`.
   To mark a whole variation as yours, put `{[%bot]}` right after its opening parenthesis: `({[%bot]} 8... Qe7 9. Ne5)`.

@@ -24,3 +24,20 @@ export function isBotAnnotator(annotator: string | undefined): boolean {
   if (!a || a === '?') return false;
   return botNames().some(b => a.includes(b));
 }
+
+// ---------- Author badges ----------
+// A comment may start with its author's name, e.g. "Hermes: White is better." or "Stockfish: +0.4".
+// For display, a known machine author is replaced by a symbol; the stored text keeps the name.
+const ENGINE_BADGES: [RegExp, string][] = [[/^stockfish\b/i, '🐟']];
+const BOT_BADGE = '🤖';
+
+/** Splits a leading "Name:" off a comment if the name belongs to an engine or bot. */
+export function authorBadge(text: string): { badge: string; author: string; rest: string } | null {
+  const m = text.match(/^\s*([\p{L}\p{N}][\p{L}\p{N} ._-]{0,29}?)\s*:\s+(.*)$/su);
+  if (!m) return null;
+  const author = m[1].trim();
+  for (const [re, badge] of ENGINE_BADGES) if (re.test(author)) return { badge, author, rest: m[2] };
+  const a = author.toLowerCase();
+  if (botNames().some(b => a === b || a.startsWith(b + ' ') || a.startsWith(b + '.'))) return { badge: BOT_BADGE, author, rest: m[2] };
+  return null;
+}

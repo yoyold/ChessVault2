@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef } from 'react';
 import { Node, moveNumber } from '../lib/tree';
 import { NAG_SYMBOL, cleanComment } from '../lib/pgn';
 import { CLASS_INFO, MoveClass } from '../lib/report';
+import { authorBadge } from '../lib/annotator';
 
 interface Props {
   root: Node;
@@ -11,13 +12,21 @@ interface Props {
   onContext: (n: Node, x: number, y: number) => void;
 }
 
+/** Comment text; a leading "Stockfish:" / "Hermes:" (any configured bot name) is shown as a symbol. */
+export function CommentText({ text }: { text: string }) {
+  const a = authorBadge(text);
+  if (!a) return <>{text}</>;
+  return <><span className="author-badge" title={a.author} aria-label={a.author}>{a.badge}</span>{a.rest}</>;
+}
+
 /** Comments of one node: the owner's in the normal style, an engine's/agent's in the bot style. */
 function comments(n: Node, bot: boolean): ReactNode[] {
   const out: ReactNode[] = [];
   const c = cleanComment(n.comment);
-  if (c) out.push(<span key={'c' + n.id} className={'mv-comment' + (bot ? ' bot' : '')}>{c}</span>);
+  // a comment signed by an engine or bot ("Hermes: …") is shown in the bot colour, too
+  if (c) out.push(<span key={'c' + n.id} className={'mv-comment' + (bot || authorBadge(c) ? ' bot' : '')}><CommentText text={c} /></span>);
   const b = cleanComment(n.botComment);
-  if (b) out.push(<span key={'b' + n.id} className="mv-comment bot" title="Kommentar von Engine / Bot">{b}</span>);
+  if (b) out.push(<span key={'b' + n.id} className="mv-comment bot" title="Kommentar von Engine / Bot"><CommentText text={b} /></span>);
   return out;
 }
 
@@ -65,7 +74,7 @@ export function MoveList({ root, cur, classes, onSelect, onContext }: Props) {
         const vb = bot || !!v.vBot;
         const inner = (
           <>
-            {cleanComment(v.pre) ? <span className={'mv-comment' + (vb ? ' bot' : '')}>{cleanComment(v.pre)}</span> : null}
+            {cleanComment(v.pre) ? <span className={'mv-comment' + (vb || authorBadge(cleanComment(v.pre)) ? ' bot' : '')}><CommentText text={cleanComment(v.pre)} /></span> : null}
             {move(v, true, vb)}
             {comments(v, vb)}
             {line(v, depth + 1, vb)}

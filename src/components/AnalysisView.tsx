@@ -73,7 +73,7 @@ export function AnalysisView() {
     }
     if (!first) { toast('Diese Variante steht schon in der Partie.'); return; }
     if (first.parent && first.parent.children[0] !== first) first.vBot = true;
-    first.botComment = `${formatScore(l)} (Tiefe ${l.depth})`;
+    first.botComment = `Stockfish: ${formatScore(l)} (Tiefe ${l.depth})`;
     sess.dirty = true; bump();
     toast('Engine-Variante übernommen.');
   };
@@ -91,7 +91,7 @@ export function AnalysisView() {
       if (!node || !ev?.bestSan) return;
       const nag = m.cls === 'inaccuracy' ? 6 : m.cls === 'mistake' ? 2 : 4;
       if (!(node.nags ?? []).some(g => g <= 6)) node.nags = [...(node.nags ?? []), nag];
-      node.botComment = `${CLASS_INFO[m.cls].label} (${formatScore(rep.evals[i + 1])}). Besser war ${ev.bestSan} (${formatScore(ev)}).`;
+      node.botComment = `Stockfish: ${CLASS_INFO[m.cls].label} (${formatScore(rep.evals[i + 1])}). Besser war ${ev.bestSan} (${formatScore(ev)}).`;
       // the better continuation as an engine variation from the position before the move
       let at = node.parent!;
       let first: Node | null = null;
